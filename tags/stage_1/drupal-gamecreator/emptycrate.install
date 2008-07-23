@@ -1,0 +1,297 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function emptycrate_install() {
+  // Create tables.
+  drupal_install_schema('emptycrate');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function emptycrate_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('emptycrate');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function emptycrate_schema() {
+  $schema['emptycrate_character'] = array(
+    'description' => t('Stores a reusable character definition.'),
+    'fields' => array(
+      'nid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The character's {node}.nid.")
+        ),
+      'image' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The id of the media to use for the character's in game image.")
+        ),
+      ),
+    'primary key' => array('nid'),
+    );
+
+  $schema['emptycrate_room'] = array(
+    'description' => t('Stores a reusable room definition.'),
+    'fields' => array(
+      'nid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The rooms's {node}.nid.")
+        ),
+      'background' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The id of the media to use for the rooms's background image.")
+        ),
+      ),
+    'primary key' => array('nid'),
+    );
+
+  $schema['emptycrate_game'] = array(
+    'description' => t('Stores a specific implementation of a game.'),
+    'fields' => array(
+      'nid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game's {node}.nid.")
+        ),
+      'starting_room_name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The name of the room the character is to start in when the game starts.")
+        ),
+      ),
+    'primary key' => array('nid'),
+    );
+
+
+  $schema['emptycrate_room_in_game'] = array(
+    'description' => t('Stores game specific data about a shared room.'),
+    'fields' => array(
+      'gid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game id this room is linked to") 
+        ),
+      'rid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The room id linked to") 
+        ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The unique name of the room given for this game instance.")
+        ),
+      'displayed_name' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => t("The name of the room as displayed to the user.")
+        ),
+      'description' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => t("Long description of the room as it pertains to this game.")
+        ),
+        
+       
+      ),
+    'primary key' => array('gid', 'rid', 'name'),
+    );
+
+  $schema['emptycrate_character_in_game'] = array(
+    'description' => t('Stores game specific data about a shared character.'),
+    'fields' => array(
+      'gid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game id this character is linked to") 
+        ),
+      'cid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The character id linked to") 
+        ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The unique name of the character given for this game instance.")
+        ),
+      'displayed_name' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => t("The name of the character as displayed to the user.")
+        ),
+      'description' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'description' => t("Long description of the character as it pertains to this game.")
+        ),
+        
+       
+      ),
+    'primary key' => array('gid', 'cid', 'name'),
+    );
+
+  $schema['emptycrate_character_in_room'] = array(
+    'description' => t('Stores room specific information about a game character.'),
+    'fields' => array(
+      'gid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game id this character is linked to") 
+        ),
+      'room_name'     => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => t("The room the character is in") 
+        ),
+      'character_name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => t("The name of the character to place in the room.")
+        ),
+      'x'     => array(
+        'type' => 'int',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('The x position at which to place the character in the room.'),
+        ),
+      'y'     => array(
+        'type' => 'int',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('The x position at which to place the character in the room.'),
+        ),
+        
+      ),
+    'primary key' => array('gid', 'room_name', 'character_name'),
+    );
+
+  $schema['emptycrate_room_question'] = array(
+    'description' => t('Stores information about a question being asked in a specific room.'),
+    'fields' => array(
+      'gid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game id this conversation question is for.") 
+        ),
+      'room_name'     => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The room this conversation question is for.") 
+        ),
+      'question_order' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("Order the question should appear in.")
+        ),
+      'character_name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The name of the character being asked the question.")
+        ),
+      'question' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => t("The question being asked.")
+        ),
+         
+      ),
+    'primary key' => array('gid', 'room_name', 'question_order'),
+    );
+
+  $schema['emptycrate_character_response'] = array(
+    'description' => t('Stores a sequence of responses to a player character question.'),
+    'fields' => array(
+      'gid'     => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("The game id this conversation reponse is for.") 
+        ),
+      'room_name'     => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("Room this response is related to.") 
+        ),
+      'question_order' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("Question this response is related to.")
+        ),
+      'response_order' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => t("Determines the order of the responses.")
+        ),
+
+      'character_name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("The name of the character speaking.")
+        ),
+
+      'response' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'description' => t("The text that the character speaks.")
+        ),
+
+      ),
+    'primary key' => array('gid', 'room_name', 'question_order', 'response_order'),
+    );
+
+  return $schema;
+}
+

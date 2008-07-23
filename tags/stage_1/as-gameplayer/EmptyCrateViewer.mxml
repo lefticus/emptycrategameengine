@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" xmlns="*" 
+      layout="absolute"
+      creationComplete="service.send()" viewSourceURL="srcview/index.html">
+  
+  <mx:Script>
+    <![CDATA[
+      import mx.collections.ArrayCollection;
+      import mx.rpc.events.ResultEvent;
+      import mx.controls.Alert;
+      import mx.controls.Menu;
+      import mx.events.MenuEvent;
+      import com.adobe.serialization.json.JSON;
+      import CharacterSpeech;
+
+      private var m_Menu:Menu;
+      private var m_Character_Image_Map:Object = new Object();;
+      private var m_Current_Character:Object;
+      private var m_Game_Data:Object;
+      private var m_Current_Character_Responses:Array;
+
+      private function findObject(a:Array, field:String, value:Object):Object
+      {
+        for each (var item:Object in a)
+        {
+          if (item[field] == value)
+          {
+            return item;
+          }
+        }
+        return null;
+      }
+
+      private function onJSONLoad(event:ResultEvent):void
+      {
+        var rawData:String = String(event.result);
+        var pattern:RegExp = /\\\'/g;
+        rawData = rawData.replace(pattern, "'");
+        var data:Array = rawData.split("\n");
+
+        rteText.text = "RawData:\n";
+        rteText.text += rawData;
+
+        var game:Object;
+        var media:Array = new Array();
+        var character:Array = new Array();
+        var room:Array = new Array();
+
+        for each (var objstr:String in data)
+        {
+          rteText.text += "\n\nParsing String: " + objstr;
+          var arr:Object = (JSON.decode(objstr) as Object);
+          rteText.text += "\n\nParsed Obj Type: " + arr.type ;
+
+          switch (arr.type)
+          {
+            case "media":
+              media[arr.nid] = arr;
+              break;
+            case "character":
+              character[arr.nid] = arr;
+              break;
+            case "room":
+              room[arr.nid] = arr;
+              break;
+            case "game":
+              game = arr;
+              break;
+            default:
+              rteText.text += "\n\nUknown objtype: " + arr.type;
+          }
+        }	
+        rteText.text += "First character response: ";
+        rteText.text += game.room[0].question[0].response[0].response;
+        var gamedata:Object = {media:media, game:game, character:character, room:room};
+        playGame(gamedata);
+      }
+
+      private function playGame(gamedata:Object):void
+      {
+        rteText.text += "\n\nplayGame called";
+        rteText.text += "\n\nStarting Room: " + gamedata.game.starting_room_name;
+        m_Game_Data = gamedata;
+        m_Game_Data.question_count = 0;
+        m_Game_Data.questions_asked = 0;
+
+        for each (var room:Object in m_Game_Data.game.room)
+        {
+          if (room.hasOwnProperty("question"))
+          {
+            m_Game_Data.question_count += room.question.length;
+          }
+        }
+        showRoom(gamedata, gamedata.game.starting_room_name);
+      }
+
+      private function showRoom(gamedata:Object, room_name:String):void
+      {
+        rteText.text += "\n\nShowing Room: " + room_name;
+        var room:Object;
+
+        for each (var room_item:Object in gamedata.game.room)
+        {
+          rteText.text += "\n\nChecking room: " + room_item.name;
+          if (room_item.name == room_name)
+          {
+            rteText.text += "\n\nRoom Found";
+            room = room_item;
+            break;
+          }
+        }
+
+        gamedata.current_room = room;
+
+        var room_base:Object = gamedata.room[room.rid];
+        var room_background_media:Object = gamedata.media[room_base.background];
+
+        rteText.text += "\n\nLoading image: " + room_background_media.file_urls[0];
+        background.load(room_background_media.file_urls[0]);
+        for each (var room_character:Object in room.character)
+        {
+          var character:Object;
+          for each (var character_item:Object in gamedata.game.character)
+          {
+            rteText.text += "\n\nChecking character: " + character_item.name;
+            if (character_item.name == room_character.character_name)
+            {
+              rteText.text += "\n\nCharacter Found";
+              character = character_item;
+              break;
+            }
+          }
+
+          var character_base:Object = gamedata.character[character.cid];
+          var character_media:Object = gamedata.media[character_base.image];
+
+          rteText.text += "\n\nLoading character image: " + character_media.file_urls[0];
+          var characterimage:Image = new Image();
+          characterimage.setStyle("rollOutEffect", unglowImage);
+          characterimage.setStyle("rollOverEffect", glowImage);
+          characterimage.load(character_media.file_urls[0]);
+          characterimage.addEventListener(MouseEvent.CLICK, characterClickHandler);
+          //characterimage["character_data"] = character;
+          image_canvas.addChild(characterimage);
+          //characterimage.data = character;
+          characterimage.id="character_image_" + character.name;
+          characterimage.move(room_character.x, room_character.y);
+          m_Character_Image_Map[characterimage.id] = character;
+        }
+        Alert.show(room.description, room.displayed_name);
+      }
+
+      private function responsesCompleted():void
+      {
+        if (m_Game_Data.questions_asked == m_Game_Data.question_count
+            && !m_Game_Data.completed_notification_sent)
+        {
+          m_Game_Data.completed_notification_sent = true;
+          Alert.show("Everything has been asked!");
+        }
+      }
+
+      private function characterTalkToMenuHandler(event:MenuEvent):void
+      {
+        import mx.managers.PopUpManager;
+        var responseset:Array = new Array();
+        var speak:CharacterSpeech = CharacterSpeech(PopUpManager.createPopUp(this, CharacterSpeech, false));
+        PopUpManager.centerPopUp(speak);
+        if (!event.item.hasOwnProperty("asked") || !event.item.asked)
+        {
+          event.item.asked = true;
+          m_Game_Data.questions_asked++;
+        }
+
+
+
+        for each (var response:Object in event.item.response)
+        {
+          var character:Object = findObject(m_Game_Data.current_room.character, "character_name", response.character_name);
+          var loc:Point = new Point(character.x, character.y);
+          loc = image_canvas.contentToGlobal(loc);
+          loc.y -= speak.height;
+          responseset.push({response:response.response, character_name:findObject(m_Game_Data.game.character, "name", response.character_name).displayed_name, location:loc});
+          }
+        speak.completedFunction = responsesCompleted;
+        speak.responses = responseset;
+      }
+
+      private function characterMenuHandler(event:MenuEvent):void
+      {
+        var eventname:String = event.item.@eventName;
+        rteText.text += "\n\nCharacter Menu Handler: " + eventname;
+        switch(eventname)
+        {
+        case "lookat":
+          rteText.text += "\n\nLookat menu event";
+          Alert.show(m_Current_Character.description, m_Current_Character.displayed_name);
+          break;
+        case "talkto":
+          rteText.text += "\n\ntalkto menu event";
+          var col:ArrayCollection = new ArrayCollection();
+
+          var questions:Array = m_Game_Data.current_room.question.filter(
+            function(item:*, index:int, array:Array):Boolean 
+            {
+              return item.character_name == m_Current_Character.name;
+            },
+            null
+          );
+
+          for each (var q:Object in questions)
+          {
+            col.addItem(q);
+          }
+
+          m_Menu = Menu.createMenu(image_canvas, col, false);
+          m_Menu.labelField="question";
+          m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
+          m_Menu.show(event.menu.x,event.menu.y);
+          break;
+
+        default:
+          rteText.text += "\n\nunknown menu event";
+        }
+      }
+
+      private function showCharacterMenu(parent:Image, x:Object, y:Object):void
+      {
+        rteText.text += "\n\nCharacter image clicked on: " + parent.id;
+        m_Menu = Menu.createMenu(parent, characterMenuData, false);
+        m_Menu.labelField="@label";
+        m_Menu.addEventListener("itemClick", characterMenuHandler);
+        m_Menu.show(x,y);
+      }
+
+      private function characterClickHandler(event:MouseEvent):void
+      {
+        var img:Image = event.currentTarget as Image;
+        rteText.text += "\n\nCharacter clicked on: " + img.id;
+        m_Current_Character = m_Character_Image_Map[img.id];
+        showCharacterMenu(img, event.stageX, event.stageY);
+      }
+    ]]>
+  </mx:Script>
+	
+  <mx:HTTPService
+    id="service"
+    resultFormat="text"
+    url="http://game.emptycrate.com/emptycrate/game_data/9"
+    result="onJSONLoad(event)" />
+              
+  <mx:Glow id="glowImage" duration="1000" 
+    alphaFrom="1.0" alphaTo="0.1" 
+    blurXFrom="0.0" blurXTo="10.0" 
+    blurYFrom="0.0" blurYTo="10.0" 
+    color="0xFFFFFF"/>
+
+  <mx:Glow id="unglowImage" duration="1000" 
+    alphaFrom="0.1" alphaTo="1.0" 
+    blurXFrom="10.0" blurXTo="0.0" 
+    blurYFrom="10.0" blurYTo="0.0" 
+    color="0xFFFFFF"/>
+
+  <mx:XML id="characterMenuData">
+    <root>
+      <menuitem label="Look At" eventName="lookat"/>
+      <menuitem label="Talk To" eventName="talkto"/>
+    </root>
+  </mx:XML>
+
+  <mx:Panel title="Game Info" width="100%" height="100%">
+    <mx:TextArea id="rteText" width="80%" height="25%" editable="false"/>
+
+    <mx:Canvas id="image_canvas">
+      <mx:Image id="background"/>
+    </mx:Canvas>        
+  </mx:Panel>
+</mx:Application>
