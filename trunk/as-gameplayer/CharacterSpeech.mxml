@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" title="Speech">
+  <mx:Script>
+    <![CDATA[
+      import mx.managers.PopUpManager;
+      import mx.controls.Text;
+
+      public var completedFunction:Function;
+
+      private var responseindex:int;
+      private var m_responses:Array;
+
+      public function set responses(setValue:Array):void
+      {
+        m_responses = setValue;
+        responseindex = 0;
+        updateResponse();
+      }
+
+      public function get responses():Array
+      {
+        return m_responses;
+      }
+
+      private function showNext():void
+      {
+        responseindex++;
+        updateResponse();
+      }
+
+      private function updateResponse():void
+      {
+        if (responseindex < m_responses.length)
+        {
+          verbage.text = m_responses[responseindex].response;
+          title = m_responses[responseindex].character_name;
+          m_move.end();
+          m_move.xTo = m_responses[responseindex].location.x;
+          m_move.yTo = m_responses[responseindex].location.y;
+          m_move.play();    
+        } else {
+          PopUpManager.removePopUp(this);
+          completedFunction();
+        }
+      }
+
+    ]]>
+  </mx:Script>
+
+  <mx:VBox>
+    <mx:TextInput id="verbage" editable="false"/>
+    <mx:Button label="..." click="showNext();"/>
+  </mx:VBox>
+
+  <mx:Move target="{this}" id="m_move"/>
+</mx:TitleWindow>
+

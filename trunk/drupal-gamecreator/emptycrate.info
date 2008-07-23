@@ -1,0 +1,4 @@
+name = EmptyCrate
+description = Allows you to create an in browser-playable adventure game
+version = 6.x-0.0.1
+core = 6.x
