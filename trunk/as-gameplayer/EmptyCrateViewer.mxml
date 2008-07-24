@@ -15,10 +15,9 @@
       import CharacterSpeech;
 
       private var m_Menu:Menu;
-      private var m_Character_Image_Map:Object = new Object();;
-      private var m_Current_Character:Object;
+      private var m_Object_Image_Map:Object = new Object();;
+      private var m_Current_Clicked_Object:Object;
       private var m_Game_Data:Object;
-      private var m_Current_Character_Responses:Array;
 
       private function findObject(a:Array, field:String, value:Object):Object
       {
@@ -71,8 +70,7 @@
               rteText.text += "\n\nUknown objtype: " + arr.type;
           }
         }	
-        rteText.text += "First character response: ";
-        rteText.text += game.room[0].question[0].response[0].response;
+
         var gamedata:Object = {media:media, game:game, character:character, room:room};
         playGame(gamedata);
       }
@@ -92,15 +90,15 @@
             m_Game_Data.question_count += room.question.length;
           }
         }
-        showRoom(gamedata, gamedata.game.starting_room_name);
+        showRoom(gamedata.game.starting_room_name);
       }
 
-      private function showRoom(gamedata:Object, room_name:String):void
+      private function showRoom(room_name:String):void
       {
         rteText.text += "\n\nShowing Room: " + room_name;
         var room:Object;
 
-        for each (var room_item:Object in gamedata.game.room)
+        for each (var room_item:Object in m_Game_Data.game.room)
         {
           rteText.text += "\n\nChecking room: " + room_item.name;
           if (room_item.name == room_name)
@@ -111,17 +109,42 @@
           }
         }
 
-        gamedata.current_room = room;
+        m_Game_Data.current_room = room;
 
-        var room_base:Object = gamedata.room[room.rid];
-        var room_background_media:Object = gamedata.media[room_base.background];
+        var room_base:Object = m_Game_Data.room[room.rid];
+        var room_background_media:Object = m_Game_Data.media[room_base.background];
+
+        while (image_canvas.numChildren > 1)
+        {
+          image_canvas.removeChildAt(1);
+        }
+
+        m_Object_Image_Map = new Object();
 
         rteText.text += "\n\nLoading image: " + room_background_media.file_urls[0];
         background.load(room_background_media.file_urls[0]);
+
+        for each (var room_exit:Object in room.exit)
+        {
+          var exit:Object = findObject(room_base.exit, "name", room_exit.exit_name);
+          var exit_media:Object = m_Game_Data.media[exit.image];
+
+          var exitimage:Image = new Image();
+          exitimage.setStyle("rollOutEffect", unglowImage);
+          exitimage.setStyle("rollOverEffect", glowImage);
+          exitimage.load(exit_media.file_urls[0]);
+          exitimage.addEventListener(MouseEvent.CLICK, exitClickHandler);
+          image_canvas.addChild(exitimage);
+          exitimage.id="exit_image_" + exit.name;
+          exitimage.move(exit.x, exit.y);
+          m_Object_Image_Map[exitimage.id] = room_exit;
+        }
+
+
         for each (var room_character:Object in room.character)
         {
           var character:Object;
-          for each (var character_item:Object in gamedata.game.character)
+          for each (var character_item:Object in m_Game_Data.game.character)
           {
             rteText.text += "\n\nChecking character: " + character_item.name;
             if (character_item.name == room_character.character_name)
@@ -132,8 +155,8 @@
             }
           }
 
-          var character_base:Object = gamedata.character[character.cid];
-          var character_media:Object = gamedata.media[character_base.image];
+          var character_base:Object = m_Game_Data.character[character.cid];
+          var character_media:Object = m_Game_Data.media[character_base.image];
 
           rteText.text += "\n\nLoading character image: " + character_media.file_urls[0];
           var characterimage:Image = new Image();
@@ -141,13 +164,13 @@
           characterimage.setStyle("rollOverEffect", glowImage);
           characterimage.load(character_media.file_urls[0]);
           characterimage.addEventListener(MouseEvent.CLICK, characterClickHandler);
-          //characterimage["character_data"] = character;
           image_canvas.addChild(characterimage);
-          //characterimage.data = character;
           characterimage.id="character_image_" + character.name;
           characterimage.move(room_character.x, room_character.y);
-          m_Character_Image_Map[characterimage.id] = character;
+          m_Object_Image_Map[characterimage.id] = character;
         }
+
+
         Alert.show(room.description, room.displayed_name);
       }
 
@@ -173,8 +196,6 @@
           m_Game_Data.questions_asked++;
         }
 
-
-
         for each (var response:Object in event.item.response)
         {
           var character:Object = findObject(m_Game_Data.current_room.character, "character_name", response.character_name);
@@ -182,20 +203,27 @@
           loc = image_canvas.contentToGlobal(loc);
           loc.y -= speak.height;
           responseset.push({response:response.response, character_name:findObject(m_Game_Data.game.character, "name", response.character_name).displayed_name, location:loc});
-          }
+        }
+
         speak.completedFunction = responsesCompleted;
         speak.responses = responseset;
       }
 
-      private function characterMenuHandler(event:MenuEvent):void
+      private function objectMenuHandler(event:MenuEvent):void
       {
         var eventname:String = event.item.@eventName;
-        rteText.text += "\n\nCharacter Menu Handler: " + eventname;
+        rteText.text += "\n\nMenu Handler: " + eventname;
+
         switch(eventname)
         {
+        case "useexit":
+          rteText.text += "\n\nUseexit menu event";
+          showRoom(m_Current_Clicked_Object.destination_room);
+          break;
+
         case "lookat":
           rteText.text += "\n\nLookat menu event";
-          Alert.show(m_Current_Character.description, m_Current_Character.displayed_name);
+          Alert.show(m_Current_Clicked_Object.description, m_Current_Clicked_Object.displayed_name);
           break;
         case "talkto":
           rteText.text += "\n\ntalkto menu event";
@@ -204,7 +232,7 @@
           var questions:Array = m_Game_Data.current_room.question.filter(
             function(item:*, index:int, array:Array):Boolean 
             {
-              return item.character_name == m_Current_Character.name;
+              return item.character_name == m_Current_Clicked_Object.name;
             },
             null
           );
@@ -225,21 +253,28 @@
         }
       }
 
-      private function showCharacterMenu(parent:Image, x:Object, y:Object):void
+      private function showObjectMenu(x:Object, y:Object, data:Object):void
       {
-        rteText.text += "\n\nCharacter image clicked on: " + parent.id;
-        m_Menu = Menu.createMenu(parent, characterMenuData, false);
+        m_Menu = Menu.createMenu(image_canvas, data, false);
         m_Menu.labelField="@label";
-        m_Menu.addEventListener("itemClick", characterMenuHandler);
+        m_Menu.addEventListener("itemClick", objectMenuHandler);
         m_Menu.show(x,y);
+      }
+
+      private function exitClickHandler(event:MouseEvent):void
+      {
+        var img:Image = event.currentTarget as Image;
+        rteText.text += "\n\nExit clicked on: " + img.id;
+        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
+        showObjectMenu(event.stageX, event.stageY, exitMenuData);
       }
 
       private function characterClickHandler(event:MouseEvent):void
       {
         var img:Image = event.currentTarget as Image;
         rteText.text += "\n\nCharacter clicked on: " + img.id;
-        m_Current_Character = m_Character_Image_Map[img.id];
-        showCharacterMenu(img, event.stageX, event.stageY);
+        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
+        showObjectMenu(event.stageX, event.stageY, characterMenuData);
       }
     ]]>
   </mx:Script>
@@ -247,7 +282,7 @@
   <mx:HTTPService
     id="service"
     resultFormat="text"
-    url="http://game.emptycrate.com/emptycrate/game_data/9"
+    url="http://game.emptycrate.com/emptycrate/game_data/14"
     result="onJSONLoad(event)" />
               
   <mx:Glow id="glowImage" duration="1000" 
@@ -268,6 +303,14 @@
       <menuitem label="Talk To" eventName="talkto"/>
     </root>
   </mx:XML>
+
+  <mx:XML id="exitMenuData">
+    <root>
+      <menuitem label="Look At" eventName="lookat"/>
+      <menuitem label="Use Exit" eventName="useexit"/>
+    </root>
+  </mx:XML>
+
 
   <mx:Panel title="Game Info" width="100%" height="100%">
     <mx:TextArea id="rteText" width="80%" height="25%" editable="false"/>
