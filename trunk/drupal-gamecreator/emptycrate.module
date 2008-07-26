@@ -143,7 +143,7 @@ function _emptycrate_game_room_response_form($roomdelta, $questiondelta, $respon
   return $form;
 }
 
-function _emptycrate_game_room_question_form($questionobj, $roomdelta, $questiondelta, $character_name, $question, $character_names)
+function _emptycrate_game_room_question_form($questionobj, $roomdelta, $questiondelta, $character_name, $question, $test_flag, $script, $character_names)
 {
   $form = array(
     '#type' => 'fieldset',
@@ -165,6 +165,21 @@ function _emptycrate_game_room_question_form($questionobj, $roomdelta, $question
     '#default_value' => $question,
     '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'question'),
   );
+
+  $form['test_flag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Flag to test before allowing question @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => $test_flag,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'test_flag'),
+  );
+
+  $form['script'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Script to play after asking question @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => $script,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'script'),
+  );
+
 
   // Room Responses
   if (isset($form_state['game_room_question_'.$questiondelta.'_count_'.$responsedelta]))
@@ -191,7 +206,7 @@ function _emptycrate_game_room_question_form($questionobj, $roomdelta, $question
 
   return $form;
 }
-function _emptycrate_game_room_exit_form($roomdelta, $exitdelta, $exit_name, $destination_room, $displayed_name, $description, $exit_names, $destination_names)
+function _emptycrate_game_room_exit_form($roomdelta, $exitdelta, $exit_name, $destination_room, $displayed_name, $description, $use_exit_script, $exit_names, $destination_names)
 {
   $form = array(
     '#type' => 'fieldset',
@@ -228,6 +243,13 @@ function _emptycrate_game_room_exit_form($roomdelta, $exitdelta, $exit_name, $de
     '#title' => t('Description for exit @n', array('@n' => ($exitdelta + 1))),
     '#default_value' => $description,
     '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'description'),
+  );
+
+  $form['use_exit_script'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Script to play when using exit @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => $use_exit_script,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'use_exit_script'),
   );
 
   return $form;
@@ -267,7 +289,7 @@ function _emptycrate_game_room_character_form($roomdelta, $characterdelta, $char
   return $form;
 }
 
-function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_name, $description, $room, $character_names, $room_names)
+function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_name, $description, $enter_room_script, $exit_room_script, $room, $character_names, $room_names)
 {
   $form = array(
     '#type' => 'fieldset',
@@ -304,6 +326,21 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
     '#parents' => array('room', $delta, 'description'),
   );
 
+  $form['enter_room_script'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Script to execute when entering room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $enter_room_script,
+    '#parents' => array('room', $delta, 'enter_room_script'),
+  );
+
+  $form['exit_room_script'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Script to execute when exiting room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $exit_room_script,
+    '#parents' => array('room', $delta, 'exit_room_script'),
+  );
+
+
   // Room Exits 
   if (isset($form_state['game_room_exit_count_'.$delta]))
   {
@@ -327,8 +364,9 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
     $destination_room = isset($exit['destination_room']) ? $exit['destination_room'] : '';
     $displayed_name = isset($exit['displayed_name']) ? $exit['displayed_name'] : '';
     $description = isset($exit['description']) ? $exit['description'] : '';
+    $use_exit_script = isset($exit['use_exit_script']) ? $exit['use_exit_script'] : '';
 
-    $form['game_room_exit_wrapper'][$exit_delta] = _emptycrate_game_room_exit_form($delta, $exit_delta, $exit_name, $destination_room, $displayed_name, $description, _emptycrate_room_exits($rid), $room_names);
+    $form['game_room_exit_wrapper'][$exit_delta] = _emptycrate_game_room_exit_form($delta, $exit_delta, $exit_name, $destination_room, $displayed_name, $description, $use_exit_script, _emptycrate_room_exits($rid), $room_names);
   }
 
 
@@ -378,7 +416,9 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
     $questionobj = $room['question'][$question_delta];
     $character_name = isset($questionobj['character_name']) ? $questionobj['character_name'] : '';
     $question = isset($questionobj['question']) ? $questionobj['question'] : '';
-    $form['game_room_question_wrapper'][$question_delta] = _emptycrate_game_room_question_form($questionobj, $delta, $question_delta, $character_name, $question, $character_names);
+    $test_flag = isset($questionobj['test_flag']) ? $questionobj['test_flag'] : '';
+    $script= isset($questionobj['script']) ? $questionobj['script'] : '';
+    $form['game_room_question_wrapper'][$question_delta] = _emptycrate_game_room_question_form($questionobj, $delta, $question_delta, $character_name, $question, $test_flag, $script, $character_names);
   }
 
   return $form;
@@ -610,7 +650,10 @@ function emptycrate_form(&$node)
         $name = isset($node->room[$delta]['rid']) ? $node->room[$delta]['name'] : '';
         $displayed_name = isset($node->room[$delta]['displayed_name']) ? $node->room[$delta]['displayed_name'] : '';
         $description = isset($node->room[$delta]['description']) ? $node->room[$delta]['description'] : '';
-        $form['game_room_wrapper'][$delta] = _emptycrate_game_room_form($delta, $room_choices, $rid, $name, $displayed_name, $description, $node->room[$delta], $character_names, $room_names);
+        $enter_script = isset($node->room[$delta]['enter_room_script']) ? $node->room[$delta]['enter_room_script'] : '';
+        $exit_script = isset($node->room[$delta]['exit_room_script']) ? $node->room[$delta]['exit_room_script'] : '';
+
+        $form['game_room_wrapper'][$delta] = _emptycrate_game_room_form($delta, $room_choices, $rid, $name, $displayed_name, $description, $enter_script, $exit_script, $node->room[$delta], $character_names, $room_names);
       }
 
       $form['starting_room_name'] = array(
@@ -618,7 +661,20 @@ function emptycrate_form(&$node)
         '#title' => t('Name of room to start in when gameplay begins'),
         '#default_value' => variable_get('starting_room_name', $node->starting_room_name),
         '#options' => $room_names,
-       );
+      );
+
+      $form['start_game_script'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Script to execute when game starts'),
+        '#default_value' => $node->start_game_script,
+      );
+
+      $form['end_game_script'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Script to execute when end game event occurs'),
+        '#default_value' => $node->end_game_script,
+      );
+
 
       break;
   }
@@ -695,7 +751,7 @@ function _emptycrate_update_game_rooms($node)
     
     if (isset($room['rid']) && $room['rid'] != 0)
     {
-      db_query("INSERT INTO {emptycrate_room_in_game} (gid, rid, name, displayed_name, description) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $room['rid'], $room['name'], $room['displayed_name'], $room['description']);
+      db_query("INSERT INTO {emptycrate_room_in_game} (gid, rid, name, displayed_name, description, enter_room_script, exit_room_script) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s')", $node->nid, $room['rid'], $room['name'], $room['displayed_name'], $room['description'], $room['enter_room_script'], $room['exit_room_script']);
 
       foreach($room['exit'] as $exit)
       {
@@ -704,7 +760,7 @@ function _emptycrate_update_game_rooms($node)
             && isset($exit['destination_room']) 
             && $exit['destination_room'] != '')
         {
-          db_query("INSERT INTO {emptycrate_room_game_exit} (gid, room_name, exit_name, destination_room, displayed_name, description) VALUES (%d, '%s', '%s', '%s', '%s', '%s')", $node->nid, $room['name'], $exit['exit_name'], $exit['destination_room'], $exit['displayed_name'], $exit['description']);
+          db_query("INSERT INTO {emptycrate_room_game_exit} (gid, room_name, exit_name, destination_room, displayed_name, description, use_exit_script) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s')", $node->nid, $room['name'], $exit['exit_name'], $exit['destination_room'], $exit['displayed_name'], $exit['description'], $exit['use_exit_script']);
         }
       }
 
@@ -723,7 +779,7 @@ function _emptycrate_update_game_rooms($node)
         if (isset($question['question'])
             && $question['question'] != '')
         {
-          db_query("INSERT INTO {emptycrate_room_question} (gid, room_name, question_order, character_name, question) VALUES (%d, '%s', %d, '%s', '%s')", $node->nid, $room['name'], $question_order, $question['character_name'], $question['question']);
+          db_query("INSERT INTO {emptycrate_room_question} (gid, room_name, question_order, character_name, question, test_flag, script) VALUES (%d, '%s', %d, '%s', '%s', '%s', '%s')", $node->nid, $room['name'], $question_order, $question['character_name'], $question['question'], $question['test_flag'], $question['script']);
 
 
           $response_order = 0;
@@ -761,7 +817,7 @@ function emptycrate_insert($node)
       _emptycrate_update_room_exits($node);
       break;
     case "game":
-      db_query("INSERT INTO {emptycrate_game} (nid, starting_room_name) VALUES (%d, '%s')", $node->nid, $node->starting_room_name);
+      db_query("INSERT INTO {emptycrate_game} (nid, starting_room_name, start_game_script, end_game_script) VALUES (%d, '%s', '%s', '%s')", $node->nid, $node->starting_room_name, $node->start_game_script, $node->end_game_script);
       _emptycrate_update_game_characters($node);
       _emptycrate_update_game_rooms($node);
       break;
@@ -781,7 +837,7 @@ function emptycrate_update($node)
       _emptycrate_update_room_exits($node);
       break;
     case "game":
-      db_query("UPDATE {emptycrate_game} SET starting_room_name = '%s' WHERE nid = %d", $node->starting_room_name, $node->nid);
+      db_query("UPDATE {emptycrate_game} SET starting_room_name = '%s', start_game_script='%s', end_game_script='%s'  WHERE nid = %d", $node->starting_room_name, $node->start_game_script, $node->end_game_script, $node->nid);
       _emptycrate_update_game_characters($node);
       _emptycrate_update_game_rooms($node);
       break;
@@ -850,7 +906,7 @@ function emptycrate_load($node)
 
       break;
     case "game":
-      $additions = db_fetch_object(db_query("SELECT starting_room_name FROM {emptycrate_game} WHERE nid = %d", $node->nid));
+      $additions = db_fetch_object(db_query("SELECT starting_room_name, start_game_script, end_game_script FROM {emptycrate_game} WHERE nid = %d", $node->nid));
       $result = db_query("SELECT cid, name, displayed_name, description from {emptycrate_character_in_game} WHERE gid = %d", $node->nid);
       $additions->character = array();
       while ($character_in_game = db_fetch_array($result))
@@ -858,12 +914,12 @@ function emptycrate_load($node)
         $additions->character[] = $character_in_game;
       }
 
-      $result = db_query("SELECT rid, name, displayed_name, description from {emptycrate_room_in_game} WHERE gid = %d", $node->nid);
+      $result = db_query("SELECT rid, name, displayed_name, description, enter_room_script, exit_room_script from {emptycrate_room_in_game} WHERE gid = %d", $node->nid);
 
       $additions->room = array();
       while ($room_in_game = db_fetch_array($result))
       {
-        $room_exit_result = db_query("SELECT exit_name, destination_room, displayed_name, description from {emptycrate_room_game_exit} WHERE gid = %d AND room_name = '%s'", $node->nid, $room_in_game['name']);
+        $room_exit_result = db_query("SELECT exit_name, destination_room, displayed_name, description, use_exit_script from {emptycrate_room_game_exit} WHERE gid = %d AND room_name = '%s'", $node->nid, $room_in_game['name']);
 
         $room_in_game['exit'] = array();
         while ($exit_in_room = db_fetch_array($room_exit_result))
@@ -880,7 +936,7 @@ function emptycrate_load($node)
           $room_in_game['character'][] = $character_in_room;
         }
 
-        $room_question_result = db_query("SELECT question_order, character_name, question FROM {emptycrate_room_question} WHERE gid=%d AND room_name='%s' ORDER BY question_order", $node->nid, $room_in_game['name']);
+        $room_question_result = db_query("SELECT question_order, character_name, question, test_flag, script FROM {emptycrate_room_question} WHERE gid=%d AND room_name='%s' ORDER BY question_order", $node->nid, $room_in_game['name']);
         $room_in_game['question'] = array();
         while ($question = db_fetch_array($room_question_result))
         {
