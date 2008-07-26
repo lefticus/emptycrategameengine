@@ -110,16 +110,28 @@ function emptycrate_schema() {
         'not null' => TRUE,
         'default' => 0,
         'description' => t("The game's {node}.nid.")
-        ),
+      ),
       'starting_room_name' => array(
         'type' => 'varchar',
         'length' => 32,
         'not null' => TRUE,
         'description' => t("The name of the room the character is to start in when the game starts.")
-        ),
       ),
+
+      'start_game_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when the game starts.")
+      ),
+
+      'end_game_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when the game end action is called.")
+      ),
+    ),
     'primary key' => array('nid'),
-    );
+  );
 
 
   $schema['emptycrate_room_in_game'] = array(
@@ -156,7 +168,17 @@ function emptycrate_schema() {
         'not null' => TRUE,
         'description' => t("Long description of the room as it pertains to this game.")
         ),
-        
+      'enter_room_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when entering the room.")
+        ),
+      'exit_room_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when exiting the room.")
+        ),
+          
        
       ),
     'primary key' => array('gid', 'rid', 'name'),
@@ -285,6 +307,13 @@ function emptycrate_schema() {
         'not null' => TRUE,
         'description' => t("Long description of this exit as it pertains to this room in this game.")
       ),
+
+      'use_exit_script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when this exit is taken.")
+      ),
+
     ),
     'primary key' => array('gid', 'room_name', 'exit_name'),
   );
@@ -323,7 +352,21 @@ function emptycrate_schema() {
         'length' => 128,
         'not null' => TRUE,
         'description' => t("The question being asked.")
-        ),
+      ),
+
+      'test_flag' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => FALSE,
+        'description' => t("Flag to test to see if question should be available.")
+      ),
+
+      'script' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => t("Script to play when this question is asked.")
+      ),
+
          
       ),
     'primary key' => array('gid', 'room_name', 'question_order'),
