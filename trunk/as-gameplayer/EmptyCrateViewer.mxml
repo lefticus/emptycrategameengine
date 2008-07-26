@@ -75,11 +75,28 @@
         playGame(gamedata);
       }
 
+      private function playScript(script:String):void
+      {
+        rteText.text += "\n\nplayingScript: " + script;
+        var params:Array = script.split(" ");
+        switch(params[0])
+        {
+          case "set_flag":
+            setFlag(params[1]);
+            break;
+          case "clear_flag":
+            clearFlag(params[1]);
+            break;
+            
+        }  
+      }
+
       private function playGame(gamedata:Object):void
       {
         rteText.text += "\n\nplayGame called";
         rteText.text += "\n\nStarting Room: " + gamedata.game.starting_room_name;
         m_Game_Data = gamedata;
+        m_Game_Data.flags = new Object();
         m_Game_Data.question_count = 0;
         m_Game_Data.questions_asked = 0;
 
@@ -90,24 +107,19 @@
             m_Game_Data.question_count += room.question.length;
           }
         }
+        playScript(gamedata.game.start_game_script);
         showRoom(gamedata.game.starting_room_name);
       }
 
       private function showRoom(room_name:String):void
       {
-        rteText.text += "\n\nShowing Room: " + room_name;
-        var room:Object;
-
-        for each (var room_item:Object in m_Game_Data.game.room)
+        if (m_Game_Data.current_room != null)
         {
-          rteText.text += "\n\nChecking room: " + room_item.name;
-          if (room_item.name == room_name)
-          {
-            rteText.text += "\n\nRoom Found";
-            room = room_item;
-            break;
-          }
+          playScript(m_Game_Data.current_room.exit_room_script);
         }
+
+        rteText.text += "\n\nShowing Room: " + room_name;
+        var room:Object = findObject(m_Game_Data.game.room, "name", room_name);
 
         m_Game_Data.current_room = room;
 
@@ -143,17 +155,7 @@
 
         for each (var room_character:Object in room.character)
         {
-          var character:Object;
-          for each (var character_item:Object in m_Game_Data.game.character)
-          {
-            rteText.text += "\n\nChecking character: " + character_item.name;
-            if (character_item.name == room_character.character_name)
-            {
-              rteText.text += "\n\nCharacter Found";
-              character = character_item;
-              break;
-            }
-          }
+          var character:Object = findObject(m_Game_Data.game.character, "name", room_character.character_name);
 
           var character_base:Object = m_Game_Data.character[character.cid];
           var character_media:Object = m_Game_Data.media[character_base.image];
@@ -172,16 +174,13 @@
 
 
         Alert.show(room.description, room.displayed_name);
+        playScript(room.enter_room_script);
+
       }
 
-      private function responsesCompleted():void
+      private function responsesCompleted(script:String):void
       {
-        if (m_Game_Data.questions_asked == m_Game_Data.question_count
-            && !m_Game_Data.completed_notification_sent)
-        {
-          m_Game_Data.completed_notification_sent = true;
-          Alert.show("Everything has been asked!");
-        }
+        playScript(script);
       }
 
       private function characterTalkToMenuHandler(event:MenuEvent):void
@@ -190,6 +189,10 @@
         var responseset:Array = new Array();
         var speak:CharacterSpeech = CharacterSpeech(PopUpManager.createPopUp(this, CharacterSpeech, false));
         PopUpManager.centerPopUp(speak);
+
+        speak.script = event.item.script;
+        speak.completedFunction = responsesCompleted;
+
         if (!event.item.hasOwnProperty("asked") || !event.item.asked)
         {
           event.item.asked = true;
@@ -205,8 +208,28 @@
           responseset.push({response:response.response, character_name:findObject(m_Game_Data.game.character, "name", response.character_name).displayed_name, location:loc});
         }
 
-        speak.completedFunction = responsesCompleted;
         speak.responses = responseset;
+      }
+
+      private function setFlag(flag_name:String):void
+      {
+        m_Game_Data.flags[flag_name] = true;
+      }
+
+      private function clearFlag(flag_name:String):void
+      {
+        m_Game_Data.flags[flag_name] = false;
+      }
+
+
+      private function testFlag(flag_name:String):Boolean
+      {
+        if (flag_name == null || flag_name == "") 
+        {
+          return true;
+        } else { 
+          return m_Game_Data.flags[flag_name] == true;
+        }
       }
 
       private function objectMenuHandler(event:MenuEvent):void
@@ -218,6 +241,7 @@
         {
         case "useexit":
           rteText.text += "\n\nUseexit menu event";
+          playScript(m_Current_Clicked_Object.use_exit_script);
           showRoom(m_Current_Clicked_Object.destination_room);
           break;
 
@@ -232,7 +256,8 @@
           var questions:Array = m_Game_Data.current_room.question.filter(
             function(item:*, index:int, array:Array):Boolean 
             {
-              return item.character_name == m_Current_Clicked_Object.name;
+              return item.character_name == m_Current_Clicked_Object.name
+                     && testFlag(item.test_flag);
             },
             null
           );
@@ -242,10 +267,15 @@
             col.addItem(q);
           }
 
-          m_Menu = Menu.createMenu(image_canvas, col, false);
-          m_Menu.labelField="question";
-          m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
-          m_Menu.show(event.menu.x,event.menu.y);
+          if (col.length == 0)
+          {
+            Alert.show("...", m_Current_Clicked_Object.displayed_name);
+          } else {
+            m_Menu = Menu.createMenu(image_canvas, col, false);
+            m_Menu.labelField="question";
+            m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
+            m_Menu.show(event.menu.x,event.menu.y);
+          }
           break;
 
         default:
@@ -282,7 +312,7 @@
   <mx:HTTPService
     id="service"
     resultFormat="text"
-    url="http://game.emptycrate.com/emptycrate/game_data/14"
+    url="http://game.emptycrate.com/emptycrate/game_data/18"
     result="onJSONLoad(event)" />
               
   <mx:Glow id="glowImage" duration="1000" 

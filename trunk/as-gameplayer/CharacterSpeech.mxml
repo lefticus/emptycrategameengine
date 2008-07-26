@@ -7,6 +7,7 @@
       import mx.controls.Text;
 
       public var completedFunction:Function;
+      public var script:String;
 
       private var responseindex:int;
       private var m_responses:Array;
@@ -41,7 +42,7 @@
           m_move.play();    
         } else {
           PopUpManager.removePopUp(this);
-          completedFunction();
+          completedFunction(script);
         }
       }
 
