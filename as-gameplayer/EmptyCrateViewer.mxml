@@ -43,8 +43,8 @@
 
         var game:Object;
         var media:Array = new Array();
-        var character:Array = new Array();
-        var room:Array = new Array();
+        var character_template:Array = new Array();
+        var room_template:Array = new Array();
 
         for each (var objstr:String in data)
         {
@@ -57,11 +57,11 @@
             case "media":
               media[arr.nid] = arr;
               break;
-            case "character":
-              character[arr.nid] = arr;
+            case "character_template":
+              character_template[arr.nid] = arr;
               break;
-            case "room":
-              room[arr.nid] = arr;
+            case "room_template":
+              room_template[arr.nid] = arr;
               break;
             case "game":
               game = arr;
@@ -71,7 +71,7 @@
           }
         }	
 
-        var gamedata:Object = {media:media, game:game, character:character, room:room};
+        var gamedata:Object = {media:media, game:game, character_template:character_template, room_template:room_template};
         playGame(gamedata);
       }
 
@@ -123,7 +123,7 @@
 
         m_Game_Data.current_room = room;
 
-        var room_base:Object = m_Game_Data.room[room.rid];
+        var room_base:Object = m_Game_Data.room_template[room.rid];
         var room_background_media:Object = m_Game_Data.media[room_base.background];
 
         while (image_canvas.numChildren > 1)
@@ -157,7 +157,7 @@
         {
           var character:Object = findObject(m_Game_Data.game.character, "name", room_character.character_name);
 
-          var character_base:Object = m_Game_Data.character[character.cid];
+          var character_base:Object = m_Game_Data.character_template[character.cid];
           var character_media:Object = m_Game_Data.media[character_base.image];
 
           rteText.text += "\n\nLoading character image: " + character_media.file_urls[0];
