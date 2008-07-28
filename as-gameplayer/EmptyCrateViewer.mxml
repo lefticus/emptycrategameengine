@@ -2,7 +2,7 @@
 
 <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" xmlns="*" 
       layout="absolute"
-      creationComplete="service.send()" viewSourceURL="srcview/index.html">
+      creationComplete="initVars(); service.send();">
   
   <mx:Script>
     <![CDATA[
@@ -18,6 +18,14 @@
       private var m_Object_Image_Map:Object = new Object();;
       private var m_Current_Clicked_Object:Object;
       private var m_Game_Data:Object;
+
+      [Bindable]
+      public var gameURL:String;
+
+      private function initVars():void
+      {
+        gameURL = "http://game.emptycrate.com/emptycrate/game_data/" + Application.application.parameters.gameid;
+      }
 
       private function findObject(a:Array, field:String, value:Object):Object
       {
@@ -312,7 +320,7 @@
   <mx:HTTPService
     id="service"
     resultFormat="text"
-    url="http://game.emptycrate.com/emptycrate/game_data/18"
+    url="{gameURL}"
     result="onJSONLoad(event)" />
               
   <mx:Glow id="glowImage" duration="1000" 
