@@ -20,6 +20,19 @@
       private var m_Game_Data:Object;
 
       [Bindable]
+      [Embed(source="lookat.svg")]
+      public var LookAtIcon:Class;
+
+      [Bindable]
+      [Embed(source="talkto.svg")]
+      public var TalkToIcon:Class;
+
+      [Bindable]
+      [Embed(source="useexit.svg")]
+      public var UseExitIcon:Class;
+
+
+      [Bindable]
       public var gameURL:String;
 
       private function initVars():void
@@ -295,7 +308,10 @@
       {
         m_Menu = Menu.createMenu(image_canvas, data, false);
         m_Menu.labelField="@label";
+        m_Menu.iconField="@icon";
         m_Menu.addEventListener("itemClick", objectMenuHandler);
+        m_Menu.scaleX = .50;
+        m_Menu.scaleY = .50;
         m_Menu.show(x,y);
       }
 
@@ -335,17 +351,19 @@
     blurYFrom="10.0" blurYTo="0.0" 
     color="0xFFFFFF"/>
 
+
   <mx:XML id="characterMenuData">
     <root>
-      <menuitem label="Look At" eventName="lookat"/>
-      <menuitem label="Talk To" eventName="talkto"/>
+      <menuitem eventName="lookat" icon="LookAtIcon"/>
+      <menuitem eventName="talkto" icon="TalkToIcon"/>
     </root>
   </mx:XML>
 
+
   <mx:XML id="exitMenuData">
     <root>
-      <menuitem label="Look At" eventName="lookat"/>
-      <menuitem label="Use Exit" eventName="useexit"/>
+      <menuitem eventName="lookat" icon="LookAtIcon"/>
+      <menuitem eventName="useexit" icon="UseExitIcon"/>
     </root>
   </mx:XML>
 
