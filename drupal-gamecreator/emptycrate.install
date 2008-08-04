@@ -365,12 +365,12 @@ function emptycrate_schema() {
         'default' => '',
         'description' => t("The name of the item to place in the room.")
       ),
-      'takable' => array(
-        'type' => 'int',
-        'size' => 'tiny',
+      'takable_flag' => array(
+        'type' => 'varchar',
+        'length' => 32,
         'not null' => TRUE,
-        'default' => 0,
-        'description' => t("If not 0 the item may be taken by the game player and put in his inventory")
+        'default' => '',
+        'description' => t("Flag to test to see if the item should be takable.")
       ),
       'x'     => array(
         'type' => 'int',
@@ -473,6 +473,13 @@ function emptycrate_schema() {
         'type' => 'text',
         'not null' => TRUE,
         'description' => t("Long description of this exit as it pertains to this room in this game.")
+      ),
+
+      'test_flag'   => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => t("Flag to test to see if this exit is usable.") 
       ),
 
       'use_exit_script' => array(
