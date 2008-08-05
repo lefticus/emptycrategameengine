@@ -307,10 +307,11 @@ function _emptycrate_game_room_item_form($roomdelta, $itemdelta, $item_name, $ta
   );
 
   $form['takable_flag'] = array(
-    '#type' => 'select',
+    '#type' => 'textfield',
     '#title' => t('Flag to see if item should be takable @n', array('@n' => ($itemdelta + 1))),
-    '#default_value' => variable_get('takable_flag',$takable_flag),
+    '#default_value' => $takable_flag,
     '#parents' => array('room', $roomdelta, 'item', $itemdelta, 'takable_flag'),
+    '#maxlength' => 32,
   );
 
   $form['x'] = array(

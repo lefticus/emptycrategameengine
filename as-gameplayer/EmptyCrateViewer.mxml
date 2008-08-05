@@ -66,6 +66,7 @@
         var media:Array = new Array();
         var character_template:Array = new Array();
         var room_template:Array = new Array();
+        var item_template:Array = new Array();
 
         for each (var objstr:String in data)
         {
@@ -84,6 +85,9 @@
             case "room_template":
               room_template[arr.nid] = arr;
               break;
+            case "item_template":
+              item_template[arr.nid] = arr;
+              break;
             case "game":
               game = arr;
               break;
@@ -92,7 +96,7 @@
           }
         }	
 
-        var gamedata:Object = {media:media, game:game, character_template:character_template, room_template:room_template};
+        var gamedata:Object = {media:media, game:game, character_template:character_template, room_template:room_template, item_template:item_template};
         playGame(gamedata);
       }
 
@@ -163,7 +167,6 @@
           var exit_media:Object = m_Game_Data.media[exit.image];
 
           var exitimage:Image = new Image();
-          exitimage.setStyle("rollOutEffect", unglowImage);
           exitimage.setStyle("rollOverEffect", glowImage);
           exitimage.load(exit_media.file_urls[0]);
           exitimage.addEventListener(MouseEvent.CLICK, exitClickHandler);
@@ -171,6 +174,26 @@
           exitimage.id="exit_image_" + exit.name;
           exitimage.move(exit.x, exit.y);
           m_Object_Image_Map[exitimage.id] = room_exit;
+        }
+
+        for each (var room_item:Object in room.item)
+        {
+          rteText.text += "\n\nDisplaying room item: " + room_item.item_name;
+          var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
+          rteText.text += "\n\nDisplaying room item: " + item.iid;
+          var item_base:Object = m_Game_Data.item_template[item.iid];
+
+          var item_media:Object = m_Game_Data.media[item_base.image];
+          rteText.text += "\n\nLoading item image: " + item_media.file_urls[0];
+
+          var itemimage:Image = new Image();
+          itemimage.setStyle("rollOverEffect", glowImage);
+          itemimage.load(item_media.file_urls[0]);
+          itemimage.addEventListener(MouseEvent.CLICK, itemClickHandler);
+          image_canvas.addChild(itemimage);
+          itemimage.id="item_image_" + item.name;
+          itemimage.move(room_item.x, room_item.y);
+          m_Object_Image_Map[itemimage.id] = item;
         }
 
 
@@ -183,7 +206,6 @@
 
           rteText.text += "\n\nLoading character image: " + character_media.file_urls[0];
           var characterimage:Image = new Image();
-          characterimage.setStyle("rollOutEffect", unglowImage);
           characterimage.setStyle("rollOverEffect", glowImage);
           characterimage.load(character_media.file_urls[0]);
           characterimage.addEventListener(MouseEvent.CLICK, characterClickHandler);
@@ -330,6 +352,14 @@
         m_Current_Clicked_Object = m_Object_Image_Map[img.id];
         showObjectMenu(event.stageX, event.stageY, characterMenuData);
       }
+
+      private function itemClickHandler(event:MouseEvent):void
+      {
+        var img:Image = event.currentTarget as Image;
+        rteText.text += "\n\nItem clicked on: " + img.id;
+        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
+        showObjectMenu(event.stageX, event.stageY, itemMenuData);
+      }
     ]]>
   </mx:Script>
 	
@@ -341,29 +371,29 @@
               
   <mx:Glow id="glowImage" duration="1000" 
     alphaFrom="1.0" alphaTo="0.1" 
-    blurXFrom="0.0" blurXTo="10.0" 
-    blurYFrom="0.0" blurYTo="10.0" 
+    blurXFrom="0.0" blurXTo="30.0" 
+    blurYFrom="0.0" blurYTo="30.0" 
     color="0xFFFFFF"/>
-
-  <mx:Glow id="unglowImage" duration="1000" 
-    alphaFrom="0.1" alphaTo="1.0" 
-    blurXFrom="10.0" blurXTo="0.0" 
-    blurYFrom="10.0" blurYTo="0.0" 
-    color="0xFFFFFF"/>
-
 
   <mx:XML id="characterMenuData">
     <root>
-      <menuitem eventName="lookat" icon="LookAtIcon"/>
-      <menuitem eventName="talkto" icon="TalkToIcon"/>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="talkto" label="Talk To" icon="TalkToIcon"/>
     </root>
   </mx:XML>
 
-
   <mx:XML id="exitMenuData">
     <root>
-      <menuitem eventName="lookat" icon="LookAtIcon"/>
-      <menuitem eventName="useexit" icon="UseExitIcon"/>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="useexit" label="Use Exit" icon="UseExitIcon"/>
+    </root>
+  </mx:XML>
+
+  <mx:XML id="itemMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="use" label="Use" icon="UseItemIcon"/>
+      <menuitem eventName="take" label="Take" icon="TakeItemIcon"/>
     </root>
   </mx:XML>
 
