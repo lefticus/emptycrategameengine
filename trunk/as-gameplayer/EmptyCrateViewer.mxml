@@ -102,15 +102,26 @@
 
       private function playScript(script:String):void
       {
+        import mx.utils.StringUtil;
+        var data:Array = script.split("\n");
+        for each (var scriptline:String in data)
+        {
+          playScriptLine(StringUtil.trim(scriptline));
+        }
+      }
+
+      private function playScriptLine(script:String):void
+      {
+        import mx.utils.StringUtil;
         rteText.text += "\n\nplayingScript: " + script;
         var params:Array = script.split(" ");
-        switch(params[0])
+        switch(StringUtil.trim(params[0]))
         {
           case "set_flag":
-            setFlag(params[1]);
+            setFlag(StringUtil.trim(params[1]));
             break;
           case "clear_flag":
-            clearFlag(params[1]);
+            clearFlag(StringUtil.trim(params[1]));
             break;
             
         }  
@@ -370,9 +381,9 @@
     result="onJSONLoad(event)" />
               
   <mx:Glow id="glowImage" duration="1000" 
-    alphaFrom="1.0" alphaTo="0.1" 
-    blurXFrom="0.0" blurXTo="30.0" 
-    blurYFrom="0.0" blurYTo="30.0" 
+    alphaFrom="1.0" alphaTo="0.0" 
+    blurXFrom="0.0" blurXTo="20.0" 
+    blurYFrom="0.0" blurYTo="20.0" 
     color="0xFFFFFF"/>
 
   <mx:XML id="characterMenuData">

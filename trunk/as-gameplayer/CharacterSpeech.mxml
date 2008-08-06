@@ -50,7 +50,7 @@
   </mx:Script>
 
   <mx:VBox>
-    <mx:TextInput id="verbage" editable="false"/>
+    <mx:Text id="verbage" width="200" />
     <mx:Button label="..." click="showNext();"/>
   </mx:VBox>
 
