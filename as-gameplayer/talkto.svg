@@ -14,7 +14,10 @@
    sodipodi:version="0.32"
    inkscape:version="0.46"
    sodipodi:docname="talkto.svg"
-   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   inkscape:export-filename="C:\Development\emptycrategameengine\as-gameplayer\talkto.png"
+   inkscape:export-xdpi="45"
+   inkscape:export-ydpi="45">
   <defs
      id="defs3474">
     <inkscape:perspective
@@ -32,10 +35,10 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.375"
-     inkscape:cx="24.632933"
+     inkscape:zoom="1"
+     inkscape:cx="-50.181818"
      inkscape:cy="32"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="g3224"
      showgrid="true"
      inkscape:document-units="px"
      inkscape:grid-bbox="true"
