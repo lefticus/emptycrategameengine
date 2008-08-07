@@ -20,16 +20,20 @@
       private var m_Game_Data:Object;
 
       [Bindable]
-      [Embed(source="lookat.svg")]
+      [Embed(source="lookat.png")]
       public var LookAtIcon:Class;
 
       [Bindable]
-      [Embed(source="talkto.svg")]
+      [Embed(source="talkto.png")]
       public var TalkToIcon:Class;
 
       [Bindable]
-      [Embed(source="useexit.svg")]
+      [Embed(source="useexit.png")]
       public var UseExitIcon:Class;
+
+      [Bindable]
+      [Embed(source="locked.svg")]
+      public var LockedIcon:Class;
 
 
       [Bindable]
@@ -295,14 +299,30 @@
         {
         case "useexit":
           rteText.text += "\n\nUseexit menu event";
-          playScript(m_Current_Clicked_Object.use_exit_script);
-          showRoom(m_Current_Clicked_Object.destination_room);
+          if (testFlag(m_Current_Clicked_Object.test_flag))
+          {
+            playScript(m_Current_Clicked_Object.use_exit_script);
+            showRoom(m_Current_Clicked_Object.destination_room);
+          } else {
+            Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
+          }
           break;
+
+        case "take":
+          rteText.text += "\n\nTake menu event";
+          if (testFlag(m_Current_Clicked_Object.takable_flag))
+          {
+          } else {
+            Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
+          }
+          break;
+
 
         case "lookat":
           rteText.text += "\n\nLookat menu event";
           Alert.show(m_Current_Clicked_Object.description, m_Current_Clicked_Object.displayed_name);
           break;
+
         case "talkto":
           rteText.text += "\n\ntalkto menu event";
           var col:ArrayCollection = new ArrayCollection();
@@ -343,8 +363,8 @@
         m_Menu.labelField="@label";
         m_Menu.iconField="@icon";
         m_Menu.addEventListener("itemClick", objectMenuHandler);
-        m_Menu.scaleX = .50;
-        m_Menu.scaleY = .50;
+//        m_Menu.scaleX = .50;
+//        m_Menu.scaleY = .50;
         m_Menu.show(x,y);
       }
 
