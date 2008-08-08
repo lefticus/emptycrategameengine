@@ -129,6 +129,11 @@
           case "clear_flag":
             clearFlag(StringUtil.trim(params[1]));
             break;
+          case "show_message":
+            params.shift();
+            Alert.show(params.join(" "), "Message");
+            break;
+            
             
         }  
       }
