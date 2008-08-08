@@ -15,8 +15,10 @@
       import CharacterSpeech;
 
       private var m_Menu:Menu;
-      private var m_Object_Image_Map:Object = new Object();;
+      private var m_Object_Image_Map:Object = new Object();
+      private var m_Inventory_Image_Map:Object = new Object();
       private var m_Current_Clicked_Object:Object;
+      private var m_Current_Clicked_Image:Image;
       private var m_Game_Data:Object;
 
       [Bindable]
@@ -193,22 +195,25 @@
 
         for each (var room_item:Object in room.item)
         {
-          rteText.text += "\n\nDisplaying room item: " + room_item.item_name;
-          var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
-          rteText.text += "\n\nDisplaying room item: " + item.iid;
-          var item_base:Object = m_Game_Data.item_template[item.iid];
+          if (!room_item.taken)
+          {
+            rteText.text += "\n\nDisplaying room item: " + room_item.item_name;
+            var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
+            rteText.text += "\n\nDisplaying room item: " + item.iid;
+            var item_base:Object = m_Game_Data.item_template[item.iid];
 
-          var item_media:Object = m_Game_Data.media[item_base.image];
-          rteText.text += "\n\nLoading item image: " + item_media.file_urls[0];
+            var item_media:Object = m_Game_Data.media[item_base.image];
+            rteText.text += "\n\nLoading item image: " + item_media.file_urls[0];
 
-          var itemimage:Image = new Image();
-          itemimage.setStyle("rollOverEffect", glowImage);
-          itemimage.load(item_media.file_urls[0]);
-          itemimage.addEventListener(MouseEvent.CLICK, itemClickHandler);
-          image_canvas.addChild(itemimage);
-          itemimage.id="item_image_" + item.name;
-          itemimage.move(room_item.x, room_item.y);
-          m_Object_Image_Map[itemimage.id] = item;
+            var itemimage:Image = new Image();
+            itemimage.setStyle("rollOverEffect", glowImage);
+            itemimage.load(item_media.file_urls[0]);
+            itemimage.addEventListener(MouseEvent.CLICK, itemClickHandler);
+            image_canvas.addChild(itemimage);
+            itemimage.id="item_image_" + item.name;
+            itemimage.move(room_item.x, room_item.y);
+            m_Object_Image_Map[itemimage.id] = item;
+          }
         }
 
 
@@ -290,6 +295,20 @@
         }
       }
 
+      private function useItem(item:Object, room:Object):void
+      {
+        for each(var script:Object in item.script)
+        {
+          if (testFlag(script.test_flag)
+              && (script.room_name == "" || script.room_name == room.name)
+              && script.object_type == ""
+              && script.object_name == "")
+          {
+            playScript(script.script);
+          }
+        }
+      }
+
       private function objectMenuHandler(event:MenuEvent):void
       {
         var eventname:String = event.item.@eventName;
@@ -309,14 +328,24 @@
           break;
 
         case "take":
-          rteText.text += "\n\nTake menu event";
-          if (testFlag(m_Current_Clicked_Object.takable_flag))
+          rteText.text += "\n\nTake menu event: " + m_Current_Clicked_Object.name;
+
+          var room_item:Object = findObject(m_Game_Data.current_room.item, "item_name", m_Current_Clicked_Object.name);
+          if (testFlag(room_item.takable_flag))
           {
+            room_item.taken = true;
+            m_Current_Clicked_Image.removeEventListener(MouseEvent.CLICK, itemClickHandler);
+            inventory_box.addChild(m_Current_Clicked_Image);  
+            m_Current_Clicked_Image.addEventListener(MouseEvent.CLICK, inventoryItemClickHandler);
+            m_Inventory_Image_Map[m_Current_Clicked_Image.id] = m_Current_Clicked_Object;
           } else {
             Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
           }
           break;
 
+        case "use":
+          useItem(m_Current_Clicked_Object, m_Game_Data.current_room);
+          break;
 
         case "lookat":
           rteText.text += "\n\nLookat menu event";
@@ -389,7 +418,16 @@
         var img:Image = event.currentTarget as Image;
         rteText.text += "\n\nItem clicked on: " + img.id;
         m_Current_Clicked_Object = m_Object_Image_Map[img.id];
+        m_Current_Clicked_Image = img;
         showObjectMenu(event.stageX, event.stageY, itemMenuData);
+      }
+
+      private function inventoryItemClickHandler(event:MouseEvent):void
+      {
+        var img:Image = event.currentTarget as Image;
+        rteText.text += "\n\nInventory Item clicked on: " + img.id;
+        m_Current_Clicked_Object = m_Inventory_Image_Map[img.id];
+        showObjectMenu(event.stageX, event.stageY, inventoryMenuData);
       }
     ]]>
   </mx:Script>
@@ -428,6 +466,13 @@
     </root>
   </mx:XML>
 
+  <mx:XML id="inventoryMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="use" label="Use" icon="UseItemIcon"/>
+    </root>
+  </mx:XML>
+
 
   <mx:Panel title="Game Info" width="100%" height="100%">
     <mx:TextArea id="rteText" width="80%" height="25%" editable="false"/>
@@ -435,5 +480,7 @@
     <mx:Canvas id="image_canvas">
       <mx:Image id="background"/>
     </mx:Canvas>        
+    <mx:HBox id="inventory_box">
+    </mx:HBox>
   </mx:Panel>
 </mx:Application>
