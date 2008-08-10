@@ -15,10 +15,6 @@
       import CharacterSpeech;
 
       private var m_Menu:Menu;
-      private var m_Object_Image_Map:Object = new Object();
-      private var m_Inventory_Image_Map:Object = new Object();
-      private var m_Current_Clicked_Object:Object;
-      private var m_Current_Clicked_Image:Image;
       private var m_Game_Data:Object;
 
       [Bindable]
@@ -40,6 +36,11 @@
 
       [Bindable]
       public var gameURL:String;
+
+      private function log(msg:String):void
+      {
+        rteText.text += msg + "\n";
+      }
 
       private function initVars():void
       {
@@ -65,9 +66,6 @@
         rawData = rawData.replace(pattern, "'");
         var data:Array = rawData.split("\n");
 
-        rteText.text = "RawData:\n";
-        rteText.text += rawData;
-
         var game:Object;
         var media:Array = new Array();
         var character_template:Array = new Array();
@@ -76,9 +74,7 @@
 
         for each (var objstr:String in data)
         {
-          rteText.text += "\n\nParsing String: " + objstr;
           var arr:Object = (JSON.decode(objstr) as Object);
-          rteText.text += "\n\nParsed Obj Type: " + arr.type ;
 
           switch (arr.type)
           {
@@ -98,7 +94,7 @@
               game = arr;
               break;
             default:
-              rteText.text += "\n\nUknown objtype: " + arr.type;
+              log("Uknown objtype: " + arr.type);
           }
         }	
 
@@ -119,7 +115,7 @@
       private function playScriptLine(script:String):void
       {
         import mx.utils.StringUtil;
-        rteText.text += "\n\nplayingScript: " + script;
+        log("playingScript: " + script);
         var params:Array = script.split(" ");
         switch(StringUtil.trim(params[0]))
         {
@@ -133,15 +129,12 @@
             params.shift();
             Alert.show(params.join(" "), "Message");
             break;
-            
-            
         }  
       }
 
       private function playGame(gamedata:Object):void
       {
-        rteText.text += "\n\nplayGame called";
-        rteText.text += "\n\nStarting Room: " + gamedata.game.starting_room_name;
+        log("Starting Room: " + gamedata.game.starting_room_name);
         m_Game_Data = gamedata;
         m_Game_Data.flags = new Object();
         m_Game_Data.question_count = 0;
@@ -158,6 +151,136 @@
         showRoom(gamedata.game.starting_room_name);
       }
 
+      private function placeImage(obj:Object, media_id:int, inventory:Boolean = false):Image
+      {
+          var media:Object = m_Game_Data.media[media_id];
+          var img:Image = new Image();
+          img.setStyle("rollOverEffect", glowImage);
+          img.load(media.file_urls[0]);
+
+          if (inventory)
+          {
+            inventory_box.addChild(img);  
+          } else {
+            image_canvas.addChild(img);
+            img.move(obj.x, obj.y);
+          }
+
+          return img;
+      }
+
+      private function takeItem(item_name:String, room_name:String):Boolean
+      {
+        var room:Object = findObject(m_Game_Data.game.room, "name", room_name);
+        var room_item:Object = findObject(room.item, "item_name", item_name);
+
+        if (!room_item.taken && testFlag(room_item.takable_flag))
+        {
+          room_item.taken = true;
+
+          var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
+          var item_base:Object = m_Game_Data.item_template[item.iid];
+          var itemimage:Image = placeImage(room_item, item_base.image, true);
+
+          itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, null, "inventoryitem"));
+          return true;
+        } else {
+          return false;
+        }
+      }
+
+      private function buildObjectMenuHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String, clicked_image:Image):Function
+      {
+        return function(event:MenuEvent):void
+        {
+          var eventname:String = event.item.@eventName;
+          log("Menu Handler: '" + eventname + "'");
+
+          if (eventname == "useexit")
+          {
+            log("Useexit menu event");
+            if (testFlag(room_object.test_flag))
+            {
+              playScript(room_object.use_exit_script);
+              showRoom(room_object.destination_room);
+            } else {
+              Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
+            }
+          } else if (eventname == "take") {
+            log("Take menu event: " + game_object.name);
+
+            if (takeItem(game_object.name, m_Game_Data.current_room.name))
+            {
+              image_canvas.removeChild(clicked_image);
+            } else {
+              Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
+            }
+
+          } else if (eventname == "use") {
+            useItem(game_object, m_Game_Data.current_room);
+          } else if (eventname == "lookat") {
+            log("Lookat menu event");
+            Alert.show(game_object.description, game_object.displayed_name);
+          } else if (eventname == "talkto") {
+            log("talkto menu event");
+            var col:ArrayCollection = new ArrayCollection();
+
+            var questions:Array = m_Game_Data.current_room.question.filter(
+              function(item:*, index:int, array:Array):Boolean 
+              {
+                return item.character_name == game_object.name
+                       && testFlag(item.test_flag);
+              },
+              null
+            );
+
+            for each (var q:Object in questions)
+            {
+              col.addItem(q);
+            }
+
+            if (col.length == 0)
+            {
+              Alert.show("...", game_object.displayed_name);
+            } else {
+              m_Menu = Menu.createMenu(image_canvas, col, false);
+              m_Menu.labelField="question";
+              m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
+              m_Menu.show(event.menu.x,event.menu.y);
+            }
+          } else {
+            log("unknown menu event");
+          }
+        }
+      }
+
+      private function buildClickHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String):Function
+      {
+        return function(event:MouseEvent):void
+        {
+          switch(object_type)
+          {
+            case "exit":
+              m_Menu = Menu.createMenu(image_canvas, exitMenuData, false);
+              break;
+            case "item":
+              m_Menu = Menu.createMenu(image_canvas, itemMenuData, false);
+              break;
+            case "character":
+              m_Menu = Menu.createMenu(image_canvas, characterMenuData, false);
+              break;
+            case "inventoryitem":
+              m_Menu = Menu.createMenu(image_canvas, inventoryMenuData, false);
+              break;
+          };
+          m_Menu.labelField="@label";
+          m_Menu.iconField="@icon";
+          var img:Image = event.currentTarget as Image;
+          m_Menu.addEventListener("itemClick", buildObjectMenuHandler(base_object, game_object, room_object, object_type, img));
+          m_Menu.show(event.stageX, event.stageY);
+        };
+      }
+
       private function showRoom(room_name:String):void
       {
         if (m_Game_Data.current_room != null)
@@ -165,7 +288,7 @@
           playScript(m_Game_Data.current_room.exit_room_script);
         }
 
-        rteText.text += "\n\nShowing Room: " + room_name;
+        log("Showing Room: " + room_name);;
         var room:Object = findObject(m_Game_Data.game.room, "name", room_name);
 
         m_Game_Data.current_room = room;
@@ -178,72 +301,40 @@
           image_canvas.removeChildAt(1);
         }
 
-        m_Object_Image_Map = new Object();
-
-        rteText.text += "\n\nLoading image: " + room_background_media.file_urls[0];
         background.load(room_background_media.file_urls[0]);
 
         for each (var room_exit:Object in room.exit)
         {
           var exit:Object = findObject(room_base.exit, "name", room_exit.exit_name);
-          var exit_media:Object = m_Game_Data.media[exit.image];
+          var exitimage:Image = placeImage(exit, exit.image);
 
-          var exitimage:Image = new Image();
-          exitimage.setStyle("rollOverEffect", glowImage);
-          exitimage.load(exit_media.file_urls[0]);
-          exitimage.addEventListener(MouseEvent.CLICK, exitClickHandler);
-          image_canvas.addChild(exitimage);
-          exitimage.id="exit_image_" + exit.name;
-          exitimage.move(exit.x, exit.y);
-          m_Object_Image_Map[exitimage.id] = room_exit;
+          exitimage.addEventListener(MouseEvent.CLICK, buildClickHandler(null, exit, room_exit, "exit"));
         }
 
         for each (var room_item:Object in room.item)
         {
           if (!room_item.taken)
           {
-            rteText.text += "\n\nDisplaying room item: " + room_item.item_name;
             var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
-            rteText.text += "\n\nDisplaying room item: " + item.iid;
             var item_base:Object = m_Game_Data.item_template[item.iid];
+            var itemimage:Image = placeImage(room_item, item_base.image);
 
-            var item_media:Object = m_Game_Data.media[item_base.image];
-            rteText.text += "\n\nLoading item image: " + item_media.file_urls[0];
-
-            var itemimage:Image = new Image();
-            itemimage.setStyle("rollOverEffect", glowImage);
-            itemimage.load(item_media.file_urls[0]);
-            itemimage.addEventListener(MouseEvent.CLICK, itemClickHandler);
-            image_canvas.addChild(itemimage);
-            itemimage.id="item_image_" + item.name;
-            itemimage.move(room_item.x, room_item.y);
-            m_Object_Image_Map[itemimage.id] = item;
+            itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, room_item, "item"));
           }
         }
-
 
         for each (var room_character:Object in room.character)
         {
           var character:Object = findObject(m_Game_Data.game.character, "name", room_character.character_name);
 
           var character_base:Object = m_Game_Data.character_template[character.cid];
-          var character_media:Object = m_Game_Data.media[character_base.image];
+          var characterimage:Image = placeImage(room_character, character_base.image); 
 
-          rteText.text += "\n\nLoading character image: " + character_media.file_urls[0];
-          var characterimage:Image = new Image();
-          characterimage.setStyle("rollOverEffect", glowImage);
-          characterimage.load(character_media.file_urls[0]);
-          characterimage.addEventListener(MouseEvent.CLICK, characterClickHandler);
-          image_canvas.addChild(characterimage);
-          characterimage.id="character_image_" + character.name;
-          characterimage.move(room_character.x, room_character.y);
-          m_Object_Image_Map[characterimage.id] = character;
+          characterimage.addEventListener(MouseEvent.CLICK, buildClickHandler(character_base, character, room_character, "character"));
         }
-
 
         Alert.show(room.description, room.displayed_name);
         playScript(room.enter_room_script);
-
       }
 
       private function responsesCompleted(script:String):void
@@ -289,7 +380,6 @@
         m_Game_Data.flags[flag_name] = false;
       }
 
-
       private function testFlag(flag_name:String):Boolean
       {
         if (flag_name == null || flag_name == "") 
@@ -314,126 +404,6 @@
         }
       }
 
-      private function objectMenuHandler(event:MenuEvent):void
-      {
-        var eventname:String = event.item.@eventName;
-        rteText.text += "\n\nMenu Handler: " + eventname;
-
-        switch(eventname)
-        {
-        case "useexit":
-          rteText.text += "\n\nUseexit menu event";
-          if (testFlag(m_Current_Clicked_Object.test_flag))
-          {
-            playScript(m_Current_Clicked_Object.use_exit_script);
-            showRoom(m_Current_Clicked_Object.destination_room);
-          } else {
-            Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
-          }
-          break;
-
-        case "take":
-          rteText.text += "\n\nTake menu event: " + m_Current_Clicked_Object.name;
-
-          var room_item:Object = findObject(m_Game_Data.current_room.item, "item_name", m_Current_Clicked_Object.name);
-          if (testFlag(room_item.takable_flag))
-          {
-            room_item.taken = true;
-            m_Current_Clicked_Image.removeEventListener(MouseEvent.CLICK, itemClickHandler);
-            inventory_box.addChild(m_Current_Clicked_Image);  
-            m_Current_Clicked_Image.addEventListener(MouseEvent.CLICK, inventoryItemClickHandler);
-            m_Inventory_Image_Map[m_Current_Clicked_Image.id] = m_Current_Clicked_Object;
-          } else {
-            Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
-          }
-          break;
-
-        case "use":
-          useItem(m_Current_Clicked_Object, m_Game_Data.current_room);
-          break;
-
-        case "lookat":
-          rteText.text += "\n\nLookat menu event";
-          Alert.show(m_Current_Clicked_Object.description, m_Current_Clicked_Object.displayed_name);
-          break;
-
-        case "talkto":
-          rteText.text += "\n\ntalkto menu event";
-          var col:ArrayCollection = new ArrayCollection();
-
-          var questions:Array = m_Game_Data.current_room.question.filter(
-            function(item:*, index:int, array:Array):Boolean 
-            {
-              return item.character_name == m_Current_Clicked_Object.name
-                     && testFlag(item.test_flag);
-            },
-            null
-          );
-
-          for each (var q:Object in questions)
-          {
-            col.addItem(q);
-          }
-
-          if (col.length == 0)
-          {
-            Alert.show("...", m_Current_Clicked_Object.displayed_name);
-          } else {
-            m_Menu = Menu.createMenu(image_canvas, col, false);
-            m_Menu.labelField="question";
-            m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
-            m_Menu.show(event.menu.x,event.menu.y);
-          }
-          break;
-
-        default:
-          rteText.text += "\n\nunknown menu event";
-        }
-      }
-
-      private function showObjectMenu(x:Object, y:Object, data:Object):void
-      {
-        m_Menu = Menu.createMenu(image_canvas, data, false);
-        m_Menu.labelField="@label";
-        m_Menu.iconField="@icon";
-        m_Menu.addEventListener("itemClick", objectMenuHandler);
-//        m_Menu.scaleX = .50;
-//        m_Menu.scaleY = .50;
-        m_Menu.show(x,y);
-      }
-
-      private function exitClickHandler(event:MouseEvent):void
-      {
-        var img:Image = event.currentTarget as Image;
-        rteText.text += "\n\nExit clicked on: " + img.id;
-        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
-        showObjectMenu(event.stageX, event.stageY, exitMenuData);
-      }
-
-      private function characterClickHandler(event:MouseEvent):void
-      {
-        var img:Image = event.currentTarget as Image;
-        rteText.text += "\n\nCharacter clicked on: " + img.id;
-        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
-        showObjectMenu(event.stageX, event.stageY, characterMenuData);
-      }
-
-      private function itemClickHandler(event:MouseEvent):void
-      {
-        var img:Image = event.currentTarget as Image;
-        rteText.text += "\n\nItem clicked on: " + img.id;
-        m_Current_Clicked_Object = m_Object_Image_Map[img.id];
-        m_Current_Clicked_Image = img;
-        showObjectMenu(event.stageX, event.stageY, itemMenuData);
-      }
-
-      private function inventoryItemClickHandler(event:MouseEvent):void
-      {
-        var img:Image = event.currentTarget as Image;
-        rteText.text += "\n\nInventory Item clicked on: " + img.id;
-        m_Current_Clicked_Object = m_Inventory_Image_Map[img.id];
-        showObjectMenu(event.stageX, event.stageY, inventoryMenuData);
-      }
     ]]>
   </mx:Script>
 	
