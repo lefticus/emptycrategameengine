@@ -176,8 +176,6 @@ function _emptycrate_game_room_question_form($questionobj, $roomdelta, $question
     '#default_value' => variable_get('character_name',$character_name),
     '#options' => $character_names,
     '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'character_name'),
-    '#size' => 32,
-    '#maxlength' => 32,
   );
 
   $form['question'] = array(
@@ -369,8 +367,9 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
 {
   $form = array(
     '#type' => 'fieldset',
-    '#title' => t('Game Room').' '.($delta + 1),
+    '#title' => t('Game Room').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
     '#collapsible' => TRUE,
+    '#collapsed' => $name!=''
   );
 
   $form['rid'] = array(
@@ -532,8 +531,9 @@ function _emptycrate_game_item_form($delta, $choices, $iid, $name, $displayed_na
 {
   $form = array(
     '#type' => 'fieldset',
-    '#title' => t('Game Item').' '.($delta + 1),
+    '#title' => t('Game Item').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
     '#collapsible' => TRUE,
+    '#collapsed' => $name!='',
   );
 
   $form['iid'] = array(
@@ -660,8 +660,9 @@ function _emptycrate_game_character_form($delta, $choices, $cid, $name, $display
 {
   $form = array(
     '#type' => 'fieldset',
-    '#title' => t('Game Character').' '.($delta + 1),
+    '#title' => t('Game Character').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
     '#collapsible' => TRUE,
+    '#collapsed' => $name!='',
   );
 
   $form['cid'] = array(
@@ -1232,7 +1233,7 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
           codebase='http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0'
           height='100%' width='100%'>
           <param name='src' value='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."'/>
-          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='480px' width='100%'/>
+          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='800px' width='100%'/>
           </object>",
         );
       } 
