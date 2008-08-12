@@ -584,8 +584,7 @@ function emptycrate_schema() {
       ),
 
       'response' => array(
-        'type' => 'varchar',
-        'length' => 128,
+        'type' => 'text',
         'not null' => TRUE,
         'description' => t("The text that the character speaks.")
       ),
