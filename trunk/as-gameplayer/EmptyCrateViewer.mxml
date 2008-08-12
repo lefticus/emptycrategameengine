@@ -105,6 +105,16 @@
         playGame(gamedata);
       }
 
+      private function endGameSuccess():void
+      {
+        playScript(m_Game_Data.game.end_game_success_script);
+      }
+  
+      private function endGameFailure():void
+      {
+        playScript(m_Game_Data.game.end_game_failure_script);
+      }
+
       private function playScript(script:String):void
       {
         import mx.utils.StringUtil;
@@ -136,6 +146,12 @@
             break;
           case "move_to":
             showRoom(StringUtil.trim(params[1]));
+            break;
+          case "end_game_success":
+            endGameSuccess();
+            break;
+          case "end_game_failure":
+            endGameFailure();
             break;
           case "show_message":
             params.shift();
@@ -252,8 +268,14 @@
           } else if (eventname == "use") {
             useItem(game_object.name, m_Game_Data.current_room.name, "", "");
           } else if (eventname == "lookat") {
+            
             log("Lookat menu event");
-            Alert.show(game_object.description, game_object.displayed_name);
+            if (object_type == "exit")
+            {
+              Alert.show(room_object.description, room_object.displayed_name);
+            } else {
+              Alert.show(game_object.description, game_object.displayed_name);
+            }
           } else if (eventname == "talkto") {
             log("talkto menu event");
             var col:ArrayCollection = new ArrayCollection();
