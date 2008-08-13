@@ -162,6 +162,7 @@
 
       private function playGame(gamedata:Object):void
       {
+        game_panel.title = gamedata.game.title;
         log("Starting Room: " + gamedata.game.starting_room_name);
         m_Game_Data = gamedata;
         m_Game_Data.flags = new Object();
@@ -580,13 +581,13 @@
   </mx:XML>
 
 
-  <mx:Panel title="Game Info" width="100%" height="100%">
-    <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
+  <mx:Panel id="game_panel" title="Game Info" width="100%" height="100%">
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
       <mx:Image id="background"/>
     </mx:Canvas>        
     <mx:HBox id="inventory_box">
     </mx:HBox>
+    <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
   </mx:Panel>
 </mx:Application>
