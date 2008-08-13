@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" xmlns="*" 
+      layout="absolute"
+      creationComplete="initVars(); service.send();">
+  
+  <mx:Script>
+    <![CDATA[
+      import mx.collections.ArrayCollection;
+      import mx.rpc.events.ResultEvent;
+      import mx.controls.Alert;
+      import mx.controls.Menu;
+      import mx.events.MenuEvent;
+      import com.adobe.serialization.json.JSON;
+      import CharacterSpeech;
+      import mx.managers.DragManager;
+      import mx.core.DragSource;
+      import mx.events.DragEvent;
+
+      private var m_Menu:Menu;
+      private var m_Game_Data:Object;
+
+      [Bindable]
+      [Embed(source="lookat.png")]
+      public var LookAtIcon:Class;
+
+      [Bindable]
+      [Embed(source="talkto.png")]
+      public var TalkToIcon:Class;
+
+      [Bindable]
+      [Embed(source="useexit.png")]
+      public var UseExitIcon:Class;
+
+      [Bindable]
+      [Embed(source="locked.svg")]
+      public var LockedIcon:Class;
+
+
+      [Bindable]
+      public var gameURL:String;
+
+      private function log(msg:String):void
+      {
+        rteText.text += msg + "\n";
+      }
+
+      private function initVars():void
+      {
+        gameURL = "http://game.emptycrate.com/emptycrate/game_data/" + Application.application.parameters.gameid;
+      }
+
+      private function findObject(a:Array, field:String, value:Object):Object
+      {
+        for each (var item:Object in a)
+        {
+          if (item[field] == value)
+          {
+            return item;
+          }
+        }
+        return null;
+      }
+
+      private function onJSONLoad(event:ResultEvent):void
+      {
+        var rawData:String = String(event.result);
+        var pattern:RegExp = /\\\'/g;
+        rawData = rawData.replace(pattern, "'");
+        var data:Array = rawData.split("\n");
+
+        var game:Object;
+        var media:Array = new Array();
+        var character_template:Array = new Array();
+        var room_template:Array = new Array();
+        var item_template:Array = new Array();
+
+        for each (var objstr:String in data)
+        {
+          var arr:Object = (JSON.decode(objstr) as Object);
+
+          switch (arr.type)
+          {
+            case "media":
+              media[arr.nid] = arr;
+              break;
+            case "character_template":
+              character_template[arr.nid] = arr;
+              break;
+            case "room_template":
+              room_template[arr.nid] = arr;
+              break;
+            case "item_template":
+              item_template[arr.nid] = arr;
+              break;
+            case "game":
+              game = arr;
+              break;
+            default:
+              log("Uknown objtype: " + arr.type);
+          }
+        }	
+
+        var gamedata:Object = {media:media, game:game, character_template:character_template, room_template:room_template, item_template:item_template};
+        playGame(gamedata);
+      }
+
+      private function endGameSuccess():void
+      {
+        playScript(m_Game_Data.game.end_game_success_script);
+      }
+  
+      private function endGameFailure():void
+      {
+        playScript(m_Game_Data.game.end_game_failure_script);
+      }
+
+      private function playScript(script:String):void
+      {
+        import mx.utils.StringUtil;
+        var data:Array = script.split("\n");
+        for each (var scriptline:String in data)
+        {
+          playScriptLine(StringUtil.trim(scriptline));
+        }
+      }
+
+      private function playScriptLine(script:String):void
+      {
+        import mx.utils.StringUtil;
+        log("playingScript: " + script);
+        var params:Array = script.split(" ");
+        switch(StringUtil.trim(params[0]))
+        {
+          case "set_flag":
+            setFlag(StringUtil.trim(params[1]));
+            break;
+          case "clear_flag":
+            clearFlag(StringUtil.trim(params[1]));
+            break;
+          case "take_item":
+            takeItem(StringUtil.trim(params[1]), "");
+            break;
+          case "remove_item":
+            removeItem(StringUtil.trim(params[1]));
+            break;
+          case "move_to":
+            showRoom(StringUtil.trim(params[1]));
+            break;
+          case "end_game_success":
+            endGameSuccess();
+            break;
+          case "end_game_failure":
+            endGameFailure();
+            break;
+          case "show_message":
+            params.shift();
+            Alert.show(params.join(" "), "Message");
+            break;
+        }  
+      }
+
+      private function playGame(gamedata:Object):void
+      {
+        game_panel.title = gamedata.game.title;
+        log("Starting Room: " + gamedata.game.starting_room_name);
+        m_Game_Data = gamedata;
+        m_Game_Data.flags = new Object();
+        m_Game_Data.question_count = 0;
+        m_Game_Data.questions_asked = 0;
+
+        for each (var room:Object in m_Game_Data.game.room)
+        {
+          if (room.hasOwnProperty("question"))
+          {
+            m_Game_Data.question_count += room.question.length;
+          }
+        }
+        playScript(gamedata.game.start_game_script);
+        showRoom(gamedata.game.starting_room_name);
+      }
+
+      private function placeImage(obj:Object, media_id:int, obj_type:String, obj_name:String, inventory:Boolean = false):Image
+      {
+          var media:Object = m_Game_Data.media[media_id];
+          var img:Image = new Image();
+          img.setStyle("rollOverEffect", glowImage);
+          img.load(media.file_urls[0]);
+
+          img.id = obj_type + "::" + obj_name;
+
+          if (inventory)
+          {
+            inventory_box.addChild(img);  
+          } else {
+            image_canvas.addChild(img);
+            img.move(obj.x, obj.y);
+          }
+
+          return img;
+      }
+
+      private function removeItem(item_name:String):void
+      {
+        for (var i:int = 0; i < inventory_box.numChildren - 1; i++)
+        { 
+          var img:Image = inventory_box.getChildAt(i) as Image;
+          if (img.id == "item::" + item_name)
+          {
+            inventory_box.removeChildAt(i);
+          }
+        }
+      }
+  
+      private function takeItem(item_name:String, room_name:String):Boolean
+      {
+        log("trying to take item:'" + item_name +"' in room: '" + room_name + "'");
+
+        if (room_name != "")
+        {
+          var room:Object = findObject(m_Game_Data.game.room, "name", room_name);
+          var room_item:Object = findObject(room.item, "item_name", item_name);
+
+          if (!room_item.taken && testFlag(room_item.takable_flag))
+          {
+            room_item.taken = true;
+          } else {
+            return false;
+          }
+        }
+
+        var item:Object = findObject(m_Game_Data.game.item, "name", item_name);
+        var item_base:Object = m_Game_Data.item_template[item.iid];
+        var itemimage:Image = placeImage(item, item_base.image, "item", item.name, true);
+
+        itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, null, "inventoryitem"));
+        itemimage.addEventListener(MouseEvent.MOUSE_MOVE, buildDragHandler(item_base, item));
+
+        return true;
+      }
+
+      private function buildObjectMenuHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String, clicked_image:Image):Function
+      {
+        return function(event:MenuEvent):void
+        {
+          var eventname:String = event.item.@eventName;
+          log("Menu Handler: '" + eventname + "'");
+
+          if (eventname == "useexit")
+          {
+            log("Useexit menu event");
+            if (testFlag(room_object.test_flag))
+            {
+              playScript(room_object.use_exit_script);
+              showRoom(room_object.destination_room);
+            } else {
+              Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
+            }
+          } else if (eventname == "take") {
+            log("Take menu event: " + game_object.name);
+
+            if (takeItem(game_object.name, m_Game_Data.current_room.name))
+            {
+              image_canvas.removeChild(clicked_image);
+            } else {
+              Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
+            }
+
+          } else if (eventname == "use") {
+            useItem(game_object.name, m_Game_Data.current_room.name, "", "");
+          } else if (eventname == "lookat") {
+            
+            log("Lookat menu event");
+            if (object_type == "exit")
+            {
+              Alert.show(room_object.description, room_object.displayed_name);
+            } else {
+              Alert.show(game_object.description, game_object.displayed_name);
+            }
+          } else if (eventname == "talkto") {
+            log("talkto menu event");
+            var col:ArrayCollection = new ArrayCollection();
+
+            var questions:Array = m_Game_Data.current_room.question.filter(
+              function(item:*, index:int, array:Array):Boolean 
+              {
+                return item.character_name == game_object.name
+                       && testFlag(item.test_flag);
+              },
+              null
+            );
+
+            for each (var q:Object in questions)
+            {
+              col.addItem(q);
+            }
+
+            if (col.length == 0)
+            {
+              Alert.show("...", game_object.displayed_name);
+            } else {
+              m_Menu = Menu.createMenu(image_canvas, col, false);
+              m_Menu.labelField="question";
+              m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
+              m_Menu.show(event.menu.x,event.menu.y);
+            }
+          } else {
+            log("unknown menu event");
+          }
+        }
+      }
+
+      private function buildDragHandler(base_object:Object, game_object:Object):Function
+      {
+        return function(event:MouseEvent):void
+        {
+          var dragInitiator:Image = event.currentTarget as Image;
+          var dragProxy:Image = new Image();
+//          dragProxy.load(event.currentTarget.source.toString());
+//          dragProxy.setActualSize(dragInitiator.width, dragInitiator.height);
+
+          var dragSource:DragSource = new DragSource();
+
+          dragSource.addData(game_object, "item");
+
+          DragManager.doDrag(dragInitiator, dragSource, event);
+        };
+      }
+
+      private function buildClickHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String):Function
+      {
+        return function(event:MouseEvent):void
+        {
+          switch(object_type)
+          {
+            case "exit":
+              m_Menu = Menu.createMenu(image_canvas, exitMenuData, false);
+              break;
+            case "item":
+              m_Menu = Menu.createMenu(image_canvas, itemMenuData, false);
+              break;
+            case "character":
+              m_Menu = Menu.createMenu(image_canvas, characterMenuData, false);
+              break;
+            case "inventoryitem":
+              m_Menu = Menu.createMenu(image_canvas, inventoryMenuData, false);
+              break;
+          };
+          m_Menu.labelField="@label";
+          m_Menu.iconField="@icon";
+          var img:Image = event.currentTarget as Image;
+          m_Menu.addEventListener("itemClick", buildObjectMenuHandler(base_object, game_object, room_object, object_type, img));
+          m_Menu.show(event.stageX, event.stageY);
+        };
+      }
+
+      private function showRoom(room_name:String):void
+      {
+        if (m_Game_Data.current_room != null)
+        {
+          playScript(m_Game_Data.current_room.exit_room_script);
+        }
+
+        log("Showing Room: " + room_name);;
+        var room:Object = findObject(m_Game_Data.game.room, "name", room_name);
+
+        m_Game_Data.current_room = room;
+
+        var room_base:Object = m_Game_Data.room_template[room.rid];
+        var room_background_media:Object = m_Game_Data.media[room_base.background];
+
+        while (image_canvas.numChildren > 1)
+        {
+          image_canvas.removeChildAt(1);
+        }
+
+        background.load(room_background_media.file_urls[0]);
+
+        for each (var room_exit:Object in room.exit)
+        {
+          var exit:Object = findObject(room_base.exit, "name", room_exit.exit_name);
+          var exitimage:Image = placeImage(exit, exit.image, "exit", exit.name);
+
+          exitimage.addEventListener(MouseEvent.CLICK, buildClickHandler(null, exit, room_exit, "exit"));
+        }
+
+        for each (var room_item:Object in room.item)
+        {
+          if (!room_item.taken)
+          {
+            var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
+            var item_base:Object = m_Game_Data.item_template[item.iid];
+            var itemimage:Image = placeImage(room_item, item_base.image, "item", item.name);
+
+            itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, room_item, "item"));
+          }
+        }
+
+        for each (var room_character:Object in room.character)
+        {
+          var character:Object = findObject(m_Game_Data.game.character, "name", room_character.character_name);
+
+          var character_base:Object = m_Game_Data.character_template[character.cid];
+          var characterimage:Image = placeImage(room_character, character_base.image, "character", character.name); 
+
+          characterimage.addEventListener(MouseEvent.CLICK, buildClickHandler(character_base, character, room_character, "character"));
+        }
+
+        Alert.show(room.description, room.displayed_name);
+        playScript(room.enter_room_script);
+      }
+
+      private function responsesCompleted(script:String):void
+      {
+        playScript(script);
+      }
+
+      private function characterTalkToMenuHandler(event:MenuEvent):void
+      {
+        import mx.managers.PopUpManager;
+        var responseset:Array = new Array();
+        var speak:CharacterSpeech = CharacterSpeech(PopUpManager.createPopUp(this, CharacterSpeech, false));
+        PopUpManager.centerPopUp(speak);
+
+        speak.script = event.item.script;
+        speak.completedFunction = responsesCompleted;
+
+        if (!event.item.hasOwnProperty("asked") || !event.item.asked)
+        {
+          event.item.asked = true;
+          m_Game_Data.questions_asked++;
+        }
+
+        for each (var response:Object in event.item.response)
+        {
+          var character:Object = findObject(m_Game_Data.current_room.character, "character_name", response.character_name);
+          var loc:Point = new Point(character.x, character.y);
+          loc = image_canvas.contentToGlobal(loc);
+          loc.y -= speak.height;
+          responseset.push({response:response.response, character_name:findObject(m_Game_Data.game.character, "name", response.character_name).displayed_name, location:loc});
+        }
+
+        speak.responses = responseset;
+      }
+
+      private function setFlag(flag_name:String):void
+      {
+        m_Game_Data.flags[flag_name] = true;
+      }
+
+      private function clearFlag(flag_name:String):void
+      {
+        m_Game_Data.flags[flag_name] = false;
+      }
+
+      private function testFlag(flag_name:String):Boolean
+      {
+        if (flag_name == null || flag_name == "") 
+        {
+          return true;
+        } else { 
+          var flag:String = flag_name;
+          var negate:Boolean = false;
+
+          if (flag_name.charAt(0) == '!')
+          {
+            flag = flag_name.slice(1);
+            negate = true;
+          }
+
+          log("Testing flag: " + flag);
+
+          var val:Boolean = (m_Game_Data.flags[flag] == true);
+          
+          if (negate)
+          {
+            return !val;
+          } else {
+            return val;
+          }
+        }
+      }
+
+      private function useItem(item_name:Object, room_name:String, object_type:String, object_name:String):void
+      {
+        var used:Boolean = false;
+
+        for each(var script:Object in findObject(m_Game_Data.game.item, "name", item_name).script)
+        {
+          if (testFlag(script.test_flag)
+              && (script.room_name == "" || script.room_name == room_name)
+              && (script.object_type == "" || script.object_type == object_type)
+              && (script.object_name == "" || script.object_name == object_name))
+          {
+            playScript(script.script);
+            used=true;
+          }
+        }
+        if (!used)
+        {
+          Alert.show("Nothing happens", "Message");
+        }
+      }
+
+
+      private function decodeObjectID(id:String):Object
+      {
+        var a:Array = id.split("::", 2);
+        return {type:a[0], name:a[1]};
+      }
+
+      private function dragDropHandler(event:DragEvent):void
+      {
+        log("dragDropHandler called");
+        var p:Point = new Point(event.stageX, event.stageY);
+        log(p.toString());
+//        var objects:Array = image_canvas.getObjectsUnderPoint(p);
+        for (var i:int = image_canvas.numChildren - 1; i > 0; i--)
+        { 
+          var img:Image = image_canvas.getChildAt(i) as Image;
+          if (img.hitTestPoint(event.stageX, event.stageY))
+          {
+            log(img.id);
+            var objname:Object = decodeObjectID(img.id);
+            useItem(event.dragSource.dataForFormat("item").name, m_Game_Data.current_room.name, objname.type, objname.name)
+          }
+        }
+      }
+
+      private function dragEnterHandler(event:DragEvent):void
+      {
+        var dropTarget:Canvas = event.currentTarget as Canvas;
+        if (event.dragSource.hasFormat('item'))
+        {
+          DragManager.acceptDragDrop(dropTarget);
+        }
+      }
+
+    ]]>
+  </mx:Script>
+	
+  <mx:HTTPService
+    id="service"
+    resultFormat="text"
+    url="{gameURL}"
+    result="onJSONLoad(event)" />
+              
+  <mx:Glow id="glowImage" duration="1000" 
+    alphaFrom="1.0" alphaTo="0.0" 
+    blurXFrom="0.0" blurXTo="20.0" 
+    blurYFrom="0.0" blurYTo="20.0" 
+    color="0xFFFFFF"/>
+
+  <mx:XML id="characterMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="talkto" label="Talk To" icon="TalkToIcon"/>
+    </root>
+  </mx:XML>
+
+  <mx:XML id="exitMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="useexit" label="Use Exit" icon="UseExitIcon"/>
+    </root>
+  </mx:XML>
+
+  <mx:XML id="itemMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="use" label="Use" icon="UseItemIcon"/>
+      <menuitem eventName="take" label="Take" icon="TakeItemIcon"/>
+    </root>
+  </mx:XML>
+
+  <mx:XML id="inventoryMenuData">
+    <root>
+      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="use" label="Use" icon="UseItemIcon"/>
+    </root>
+  </mx:XML>
+
+
+  <mx:Panel id="game_panel" title="Game Info" width="100%" height="100%">
+
+    <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
+      <mx:Image id="background"/>
+    </mx:Canvas>        
+    <mx:HBox id="inventory_box">
+    </mx:HBox>
+    <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
+  </mx:Panel>
+</mx:Application>

@@ -1,0 +1,1405 @@
+<?php
+
+/**
+ * Implementation of emptycrate_help().
+ */
+function emptycrate_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#emptycrate':
+      $output = '<p>'. t('The emptycrate module is used for creating interactive stories in a web based collaborative environment.') .'</p>';
+      return $output;
+  }
+}
+
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function emptycrate_perm() {
+  return array('create emptycrate game content', 'delete own emptycrate game content', 'delete any emptycreate game content', 'edit any emptycrate game content', 'edit own emptycrate game content', 'play emptycrate games');
+}
+
+/**
+ * Implementation of hook_access().
+ */
+function emptycrate_access($op, $node, $account) {
+  switch ($op) {
+    case 'create':
+      return user_access('create emptycrate game content', $account);
+    case 'update':
+      return user_access('edit any emptycrate game content', $account) || (user_access('edit own emptycrate game content', $account) && ($node->uid == $account->uid));
+    case 'delete':
+      return user_access('delete any emptycrate game content', $account) || (user_access('delete own emptycrate game content', $account) && ($node->uid == $account->uid));
+  }
+}
+
+
+/**
+ * Implementation of hook_node_info().
+ */
+function emptycrate_node_info() {
+  return array(
+    'media' => array(
+      'name' => t('Game Media'),
+      'module' => 'emptycrate',
+      'description' => t('A <em>media</em> provides graphics and audio for a game element.'),
+    ),
+    'character_template' => array(
+      'name' => t('Game Character Template'),
+      'module' => 'emptycrate',
+      'description' => t('A <em>character_template</em> describes a reusable character component of a game.'),
+    ),
+    'item_template' => array(
+      'name' => t('Game Item Template'),
+      'module' => 'emptycrate',
+      'description' => t('An <em>item_template</em> describes a reusable item component of a game.'),
+    ),
+    'room_template' => array(
+      'name' => t('Game Room Template'),
+      'module' => 'emptycrate',
+      'description' => t('A <em>room_template</em> describes a reusable room component of a game, where characters and items can reside.'),
+    ),
+    'game' => array(
+      'name' => t('Game'),
+      'module' => 'emptycrate',
+      'description' => t("A <em>game</em> combines game rooms and game characters into a playable game."),
+    ),
+  );
+}
+
+function _emptycrate_media_elements()
+{
+  $options[0] = '';
+  $medianids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'media'");
+  while ($medianid = db_fetch_array($medianids))
+  {
+    $media = node_load($medianid['nid']);
+    $options[$media->nid] = $media->title; 
+  } 
+
+  return $options;
+}
+
+function _emptycrate_item_choices()
+{
+  $options[0] = '';
+
+  $itemnids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'item_template'");
+  while ($itemnid = db_fetch_array($itemnids))
+  {
+    $item = node_load($itemnid['nid']);
+    $options[$item->nid] = $item->title; 
+  } 
+
+  return $options;
+}
+
+function _emptycrate_character_choices()
+{
+  $options[0] = '';
+
+  $characternids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'character_template'");
+  while ($characternid = db_fetch_array($characternids))
+  {
+    $character = node_load($characternid['nid']);
+    $options[$character->nid] = $character->title; 
+  } 
+
+  return $options;
+}
+
+function _emptycrate_room_exits($rid)
+{
+  $options[''] = '';
+
+  $names = db_query("SELECT name FROM {emptycrate_room_exit} WHERE rid = %d", $rid);
+  while ($name = db_fetch_array($names))
+  {
+    $options[$name["name"]] = $name["name"];
+  } 
+
+  return $options;
+}
+
+function _emptycrate_room_choices()
+{
+  $options[0] = '';
+
+  $nids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'room_template'");
+  while ($nid = db_fetch_array($nids))
+  {
+    $room = node_load($nid['nid']);
+    $options[$room->nid] = $room->title; 
+  } 
+
+  return $options;
+}
+
+function _emptycrate_game_room_response_form($roomdelta, $questiondelta, $responsedelta, $character_name, $response, $character_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Question Response ').' '.($responsedelta + 1),
+  );
+
+  $form['character_name'] = array(
+    '#type' => 'select',
+    '#title' => t('Name of character responding @n', array('@n' => ($responsedelta + 1))),
+    '#default_value' => variable_get('character_name',$character_name),
+    '#options' => $character_names,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'response', $responsedelta, 'character_name'),
+  );
+
+  $form['response'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Response @n', array('@n' => ($responsedelta + 1))),
+    '#default_value' => $response,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'response', $responsedelta, 'response'),
+  );
+
+  return $form;
+}
+
+function _emptycrate_game_room_question_form($questionobj, $roomdelta, $questiondelta, $character_name, $question, $test_flag, $script, $character_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Question in Room').' '.($questiondelta + 1),
+  );
+
+  $form['character_name'] = array(
+    '#type' => 'select',
+    '#title' => t('Name of character being asked @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => variable_get('character_name',$character_name),
+    '#options' => $character_names,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'character_name'),
+  );
+
+  $form['question'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Question being asked @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => $question,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'question'),
+    '#maxlength' => 128,
+  );
+
+  $form['test_flag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Flag to test before allowing question @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => $test_flag,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'test_flag'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['script'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Script to play after asking question @n', array('@n' => ($questiondelta + 1))),
+    '#default_value' => $script,
+    '#parents' => array('room', $roomdelta, 'question', $questiondelta, 'script'),
+  );
+
+
+  // Room Responses
+  if (isset($form_state['game_room_question_'.$questiondelta.'_count_'.$responsedelta]))
+  {
+    $game_room_response_count = $form_state['game_room_question_'.$questiondelta.'_count_'.$responsedelta];
+  } else {
+    $game_room_response_count = max(2, empty($questionobj['response'])? 2 : count($questionobj['response']) + 1);
+  }
+
+  $form['game_room_response_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Responses to Question'),
+  );
+
+  for ($response_delta = 0; $response_delta < $game_room_response_count; $response_delta++)
+  {
+    $responseobj = $questionobj['response'][$response_delta];
+    $character_name = isset($responseobj['character_name']) ? $responseobj['character_name'] : '';
+    $response = isset($responseobj['response']) ? $responseobj['response'] : '';
+    $form['game_room_response_wrapper'][$response_delta] = _emptycrate_game_room_response_form($roomdelta, $questiondelta, $response_delta, $character_name, $response, $character_names);
+  }
+
+  return $form;
+}
+function _emptycrate_game_room_exit_form($roomdelta, $exitdelta, $exit_name, $destination_room, $displayed_name, $description, $test_flag, $use_exit_script, $exit_names, $destination_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Exit in Room').' '.($exitdelta + 1),
+  );
+
+  $form['exit_name'] = array(
+    '#type' => 'select',
+    '#title' => t('Name of exit @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => variable_get('exit_name',$exit_name),
+    '#options' => $exit_names,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'exit_name'),
+  );
+
+  $form['destination_room'] = array(
+    '#type' => 'select',
+    '#title' => t('Room exit leads to @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => variable_get('destination_room',$destination_room),
+    '#options' => $destination_names,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'destination_room'),
+  );
+
+
+  $form['displayed_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Displayed name for exit @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => $displayed_name,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'displayed_name'),
+    '#maxlength' => 128,
+  );
+
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description for exit @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => $description,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'description'),
+  );
+
+  $form['test_flag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Flag to test to see if exit is usable @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => $test_flag,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'test_flag'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+
+  $form['use_exit_script'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Script to play when using exit @n', array('@n' => ($exitdelta + 1))),
+    '#default_value' => $use_exit_script,
+    '#parents' => array('room', $roomdelta, 'exit', $exitdelta, 'use_exit_script'),
+  );
+
+  return $form;
+}
+
+function _emptycrate_game_room_item_form($roomdelta, $itemdelta, $item_name, $takable_flag, $x, $y, $item_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Item in Room').' '.($itemdelta + 1),
+  );
+
+  $form['item_name'] = array(
+    '#type' => 'select',
+    '#title' => t('Name of item @n', array('@n' => ($itemdelta + 1))),
+    '#default_value' => variable_get('item_name',$item_name),
+    '#options' => $item_names,
+    '#parents' => array('room', $roomdelta, 'item', $itemdelta, 'item_name'),
+  );
+
+  $form['takable_flag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Flag to see if item should be takable @n', array('@n' => ($itemdelta + 1))),
+    '#default_value' => $takable_flag,
+    '#parents' => array('room', $roomdelta, 'item', $itemdelta, 'takable_flag'),
+    '#maxlength' => 32,
+  );
+
+  $form['x'] = array(
+    '#type' => 'textfield',
+    '#title' => t('X position for item @n', array('@n' => ($itemdelta + 1))),
+    '#default_value' => $x,
+    '#parents' => array('room', $roomdelta, 'item', $itemdelta, 'x'),
+  );
+
+  $form['y'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Y position for item @n', array('@n' => ($itemdelta + 1))),
+    '#default_value' => $y,
+    '#parents' => array('room', $roomdelta, 'item', $itemdelta, 'y'),
+  );
+
+  return $form;
+}
+
+
+function _emptycrate_game_room_character_form($roomdelta, $characterdelta, $character_name, $x, $y, $character_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Character in Room').' '.($characterdelta + 1),
+  );
+
+  $form['character_name'] = array(
+    '#type' => 'select',
+    '#title' => t('Name of character @n', array('@n' => ($characterdelta + 1))),
+    '#default_value' => variable_get('character_name',$character_name),
+    '#options' => $character_names,
+    '#parents' => array('room', $roomdelta, 'character', $characterdelta, 'character_name'),
+  );
+
+  $form['x'] = array(
+    '#type' => 'textfield',
+    '#title' => t('X position for character @n', array('@n' => ($characterdelta + 1))),
+    '#default_value' => $x,
+    '#parents' => array('room', $roomdelta, 'character', $characterdelta, 'x'),
+  );
+
+  $form['y'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Y position for character @n', array('@n' => ($characterdelta + 1))),
+    '#default_value' => $y,
+    '#parents' => array('room', $roomdelta, 'character', $characterdelta, 'y'),
+  );
+
+  return $form;
+}
+
+function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_name, $description, $enter_room_script, $exit_room_script, $room, $character_names, $room_names, $item_names)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Game Room').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
+    '#collapsible' => TRUE,
+    '#collapsed' => $name!=''
+  );
+
+  $form['rid'] = array(
+    '#type' => 'select',
+    '#title' => t('Template room for room @n', array('@n' => ($delta + 1))),
+    '#default_value' => variable_get('rid',$rid),
+    '#options' => $choices,
+    '#parents' => array('room', $delta, 'rid'),
+  );
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name for room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $name,
+    '#parents' => array('room', $delta, 'name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['displayed_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Displayed name for room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $displayed_name,
+    '#parents' => array('room', $delta, 'displayed_name'),
+    '#maxlength' => 128,
+  );
+
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description for room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $description,
+    '#parents' => array('room', $delta, 'description'),
+  );
+
+  $form['enter_room_script'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Script to execute when entering room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $enter_room_script,
+    '#parents' => array('room', $delta, 'enter_room_script'),
+  );
+
+  $form['exit_room_script'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Script to execute when exiting room @n', array('@n' => ($delta + 1))),
+    '#default_value' => $exit_room_script,
+    '#parents' => array('room', $delta, 'exit_room_script'),
+  );
+
+
+  // Room Exits 
+  if (isset($form_state['game_room_exit_count_'.$delta]))
+  {
+    $game_room_exit_count = $form_state['game_room_exit_count_'].$delta;
+  } else {
+    $game_room_exit_count = max(2, empty($room['exit'])? 2 : count($room['exit']) + 1);
+  }
+
+  $form['game_room_exit_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Exits in Room'),
+  );
+
+
+  for ($exit_delta = 0; $exit_delta < $game_room_exit_count; $exit_delta++)
+  {
+    $exit = $room['exit'][$exit_delta];
+    $exit_name = isset($exit['exit_name']) ? $exit['exit_name'] : '';
+    $destination_room = isset($exit['destination_room']) ? $exit['destination_room'] : '';
+    $test_flag = isset($exit['test_flag']) ? $exit['test_flag'] : '';
+    $displayed_name = isset($exit['displayed_name']) ? $exit['displayed_name'] : '';
+    $description = isset($exit['description']) ? $exit['description'] : '';
+    $use_exit_script = isset($exit['use_exit_script']) ? $exit['use_exit_script'] : '';
+
+    $form['game_room_exit_wrapper'][$exit_delta] = _emptycrate_game_room_exit_form($delta, $exit_delta, $exit_name, $destination_room, $displayed_name, $description, $test_flag, $use_exit_script, _emptycrate_room_exits($rid), $room_names);
+  }
+
+  // Room Items
+  if (isset($form_state['game_room_item_count_'.$delta]))
+  {
+    $game_room_item_count = $form_state['game_room_item_count_'].$delta;
+  } else {
+    $game_room_item_count = max(2, empty($room['item'])? 2 : count($room['item']) + 1);
+  }
+
+  $form['game_room_item_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Items in Room'),
+  );
+
+  for ($item_delta = 0; $item_delta < $game_room_item_count; $item_delta++)
+  {
+    $item = $room['item'][$item_delta];
+    $item_name = isset($item['item_name']) ? $item['item_name'] : '';
+    $takable_flag = isset($item['takable_flag']) ? $item['takable_flag'] : '';
+    $x = isset($item['x']) ? $item['x'] : 0;
+    $y = isset($item['y']) ? $item['y'] : 0;
+    $form['game_room_item_wrapper'][$item_delta] = _emptycrate_game_room_item_form($delta, $item_delta, $item_name, $takable_flag, $x, $y, $item_names);
+  }
+
+
+  // Room Characters
+  if (isset($form_state['game_room_character_count_'.$delta]))
+  {
+    $game_room_character_count = $form_state['game_room_character_count_'].$delta;
+  } else {
+    $game_room_character_count = max(2, empty($room['character'])? 2 : count($room['character']) + 1);
+  }
+
+  $form['game_room_character_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Characters in Room'),
+  );
+
+  for ($character_delta = 0; $character_delta < $game_room_character_count; $character_delta++)
+  {
+    $character = $room['character'][$character_delta];
+    $character_name = isset($character['character_name']) ? $character['character_name'] : '';
+    $x = isset($character['x']) ? $character['x'] : 0;
+    $y = isset($character['y']) ? $character['y'] : 0;
+    $form['game_room_character_wrapper'][$character_delta] = _emptycrate_game_room_character_form($delta, $character_delta, $character_name, $x, $y, $character_names);
+  }
+
+  // Room Questions
+  if (isset($form_state['game_room_question_count_'.$delta]))
+  {
+    $game_room_question_count = $form_state['game_room_question_count_'].$delta;
+  } else {
+    $game_room_question_count = max(2, empty($room['question'])? 2 : count($room['question']) + 1);
+  }
+
+  $form['game_room_question_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Questions in Room'),
+  );
+
+
+  for ($question_delta = 0; $question_delta < $game_room_question_count; $question_delta++)
+  {
+    $questionobj = $room['question'][$question_delta];
+    $character_name = isset($questionobj['character_name']) ? $questionobj['character_name'] : '';
+    $question = isset($questionobj['question']) ? $questionobj['question'] : '';
+    $test_flag = isset($questionobj['test_flag']) ? $questionobj['test_flag'] : '';
+    $script= isset($questionobj['script']) ? $questionobj['script'] : '';
+    $form['game_room_question_wrapper'][$question_delta] = _emptycrate_game_room_question_form($questionobj, $delta, $question_delta, $character_name, $question, $test_flag, $script, $character_names);
+  }
+
+  return $form;
+}
+
+function _emptycrate_game_item_form($delta, $choices, $iid, $name, $displayed_name, $description, $item)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Game Item').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
+    '#collapsible' => TRUE,
+    '#collapsed' => $name!='',
+  );
+
+  $form['iid'] = array(
+    '#type' => 'select',
+    '#title' => t('Template item for item @n', array('@n' => ($delta + 1))),
+    '#default_value' => variable_get('iid',$iid),
+    '#options' => $choices,
+    '#parents' => array('item', $delta, 'iid'),
+  );
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name for item @n', array('@n' => ($delta + 1))),
+    '#default_value' => $name,
+    '#parents' => array('item', $delta, 'name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['displayed_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Displayed name for item @n', array('@n' => ($delta + 1))),
+    '#default_value' => $displayed_name,
+    '#parents' => array('item', $delta, 'displayed_name'),
+    '#maxlength' => 128,
+  );
+
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description for item @n', array('@n' => ($delta + 1))),
+    '#default_value' => $description,
+    '#parents' => array('item', $delta, 'description'),
+  );
+
+
+
+  // Item scripts
+  if (isset($form_state['game_item_script_count_'.$delta]))
+  {
+    $game_item_script_count = $form_state['game_room_exit_count_'].$delta;
+  } else {
+    $game_item_script_count = max(2, empty($item['script'])? 2 : count($item['script']) + 1);
+  }
+
+  $form['game_item_script_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Scripts for item'),
+  );
+
+  for ($script_delta = 0; $script_delta < $game_item_script_count; $script_delta++)
+  {
+    $script = $item['script'][$script_delta];
+    $test_flag = isset($script['test_flag']) ? $script['test_flag'] : '';
+    $room_name = isset($script['room_name']) ? $script['room_name'] : '';
+    $object_type = isset($script['object_type']) ? $script['object_type'] : '';
+    $object_name = isset($script['object_name']) ? $script['object_name'] : '';
+    $script_text = isset($script['script']) ? $script['script'] : '';
+
+    $form['game_item_script_wrapper'][$script_delta] = _emptycrate_game_item_script_form($delta, $script_delta, $test_flag, $room_name, $object_type, $object_name, $script_text);
+  }
+
+  return $form;
+}
+
+function _emptycrate_game_item_script_form($itemdelta, $scriptdelta, $test_flag, $room_name, $object_type, $object_name, $script_text)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#collapsible' => true,
+    '#title' => t('Item script').' '.($scriptdelta + 1),
+  );
+
+  $form['test_flag'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Test flag for script @n', array('@n' => ($scriptdelta + 1))),
+    '#default_value' => $test_flag,
+    '#parents' => array('item', $itemdelta, 'script', $scriptdelta, 'test_flag'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['room_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Room that script may be executed in @n', array('@n' => ($scriptdelta + 1))),
+    '#default_value' => $room_name,
+    '#parents' => array('item', $itemdelta, 'script', $scriptdelta, 'room_name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['object_type'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Object type script may be executed on @n', array('@n' => ($scriptdelta + 1))),
+    '#default_value' => $object_type,
+    '#parents' => array('item', $itemdelta, 'script', $scriptdelta, 'object_type'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['object_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Object name script may be executed on @n', array('@n' => ($scriptdelta + 1))),
+    '#default_value' => $object_name,
+    '#parents' => array('item', $itemdelta, 'script', $scriptdelta, 'object_name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['script'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Script text @n', array('@n' => ($scriptdelta + 1))),
+    '#default_value' => $script_text,
+    '#parents' => array('item', $itemdelta, 'script', $scriptdelta, 'script'),
+  );
+
+
+  return $form;
+}
+
+
+function _emptycrate_game_character_form($delta, $choices, $cid, $name, $displayed_name, $description)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Game Character').' '.($delta + 1). (($name=='') ? '' : (': '.$name)),
+    '#collapsible' => TRUE,
+    '#collapsed' => $name!='',
+  );
+
+  $form['cid'] = array(
+    '#type' => 'select',
+    '#title' => t('Template character for character @n', array('@n' => ($delta + 1))),
+    '#default_value' => variable_get('cid',$cid),
+    '#options' => $choices,
+    '#parents' => array('character', $delta, 'cid'),
+  );
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name for character @n', array('@n' => ($delta + 1))),
+    '#default_value' => $name,
+    '#parents' => array('character', $delta, 'name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['displayed_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Displayed name for character @n', array('@n' => ($delta + 1))),
+    '#default_value' => $displayed_name,
+    '#parents' => array('character', $delta, 'displayed_name'),
+    '#maxlength' => 128,
+  );
+
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description for character @n', array('@n' => ($delta + 1))),
+    '#default_value' => $description,
+    '#parents' => array('character', $delta, 'description'),
+  );
+
+  return $form;
+}
+
+function _emptycrate_room_exit_form($delta, $mediachoices, $image, $name, $x, $y)
+{
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Room Exit').' '.($delta + 1),
+    '#collapsible' => TRUE,
+  );
+
+  $form['image'] = array(
+    '#type' => 'select',
+    '#title' => t('Media element to use for exit @n', array('@n' => ($delta + 1))),
+    '#default_value' => variable_get('image',$image),
+    '#options' => $mediachoices,
+    '#parents' => array('exit', $delta, 'image'),
+  );
+
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name for exit @n', array('@n' => ($delta + 1))),
+    '#default_value' => $name,
+    '#parents' => array('exit', $delta, 'name'),
+    '#size' => 32,
+    '#maxlength' => 32,
+  );
+
+  $form['x'] = array(
+    '#type' => 'textfield',
+    '#title' => t('X location for media for exit @n', array('@n' => ($delta + 1))),
+    '#default_value' => $x,
+    '#parents' => array('exit', $delta, 'x'),
+  );
+
+  $form['y'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Y location for media for exit @n', array('@n' => ($delta + 1))),
+    '#default_value' => $y,
+    '#parents' => array('exit', $delta, 'y'),
+  );
+
+  return $form;
+}
+
+function emptycrate_form(&$node)
+{
+  // The site admin can decide if this node type has a title and body, and how
+  // the fields should be labeled. We need to load these settings so we can
+  // build the node form correctly.
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    // In Drupal 6, we can use node_body_field() to get the body and filter
+    // elements. This replaces the old textarea + filter_form() method of
+    // setting this up. It will also ensure the teaser splitter gets set up
+    // properly.
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+
+  switch ($node->type)
+  {
+    case "media":
+      
+      break;
+    case "character_template":
+      $form['image'] = array(
+        '#type' => 'select',
+        '#title' => t('Character Image Media Element'),
+        '#default_value' => variable_get('image',$node->image),
+        '#options' => _emptycrate_media_elements(),
+        '#description' => t("Media element which will be used to represent the character's in-game image."),
+      );
+      break;
+    case "item_template":
+      $form['image'] = array(
+        '#type' => 'select',
+        '#title' => t('Item Image Media Element'),
+        '#default_value' => variable_get('item',$node->image),
+        '#options' => _emptycrate_media_elements(),
+        '#description' => t("Media element which will be used to represent the item's in-game image."),
+      );
+      break;
+
+    case "room_template":
+      $form['background'] = array(
+        '#type' => 'select',
+        '#title' => t('Room Background Media Element'),
+        '#default_value' => variable_get('background',$node->background),
+        '#options' => _emptycrate_media_elements(),
+        '#description' => t("Media element which will be used to represent the room's background."),
+      );
+
+
+      /* Exits in room */
+      if (isset($form_state['room_exit_count']))
+      {
+        $room_exit_count = $form_state['room_exit_count'];
+      } else {
+        $room_exit_count = max(2, empty($node->exit) ? 2 : count($node->exit) + 1);
+      }
+
+      $form['room_exit_wrapper'] = array(
+        '#tree' => TRUE,
+        '#type' => 'fieldset',
+        '#title' => t('Room Exits'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+
+      $media_choices = _emptycrate_media_elements();
+
+      for ($delta = 0; $delta < $room_exit_count; $delta++)
+      {
+        $image = isset($node->exit[$delta]['image']) ? $node->exit[$delta]['image'] : 0;
+        $name = isset($node->exit[$delta]['name']) ? $node->exit[$delta]['name'] : '';
+        $x = isset($node->exit[$delta]['x']) ? $node->exit[$delta]['x'] : 0;
+        $y = isset($node->exit[$delta]['y']) ? $node->exit[$delta]['y'] : 0;
+        $form['room_exit_wrapper'][$delta] = _emptycrate_room_exit_form($delta, $media_choices, $image, $name, $x, $y);
+      }
+
+      break;
+    case "game":
+      /* Characters in Game */
+      if (isset($form_state['game_character_count']))
+      {
+        $game_character_count = $form_state['game_character_count'];
+      } else {
+        $game_character_count = max(2, empty($node->character) ? 2 : count($node->character) + 1);
+      }
+
+      $form['game_character_wrapper'] = array(
+        '#tree' => TRUE,
+        '#type' => 'fieldset',
+        '#title' => t('Game Characters'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+
+      $character_choices = _emptycrate_character_choices();
+
+      for ($delta = 0; $delta < $game_character_count; $delta++)
+      {
+        $cid = isset($node->character[$delta]['cid']) ? $node->character[$delta]['cid'] : 0;
+        $name = isset($node->character[$delta]['name']) ? $node->character[$delta]['name'] : '';
+        $displayed_name = isset($node->character[$delta]['displayed_name']) ? $node->character[$delta]['displayed_name'] : '';
+        $description = isset($node->character[$delta]['description']) ? $node->character[$delta]['description'] : '';
+        $form['game_character_wrapper'][$delta] = _emptycrate_game_character_form($delta, $character_choices, $cid, $name, $displayed_name, $description);
+      }
+
+      /* Items in Game */
+      if (isset($form_state['game_item_count']))
+      {
+        $game_item_count = $form_state['game_item_count'];
+      } else {
+        $game_item_count = max(2, empty($node->item) ? 2 : count($node->item) + 1);
+      }
+
+      $form['game_item_wrapper'] = array(
+        '#tree' => TRUE,
+        '#type' => 'fieldset',
+        '#title' => t('Game Items'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+
+      $item_choices = _emptycrate_item_choices();
+
+      for ($delta = 0; $delta < $game_item_count; $delta++)
+      {
+        $iid = isset($node->item[$delta]['iid']) ? $node->item[$delta]['iid'] : 0;
+        $name = isset($node->item[$delta]['name']) ? $node->item[$delta]['name'] : '';
+        $displayed_name = isset($node->item[$delta]['displayed_name']) ? $node->item[$delta]['displayed_name'] : '';
+        $description = isset($node->item[$delta]['description']) ? $node->item[$delta]['description'] : '';
+        $form['game_item_wrapper'][$delta] = _emptycrate_game_item_form($delta, $item_choices, $iid, $name, $displayed_name, $description, $node->item[$delta]);
+      }
+
+
+
+      /* Rooms in Game */
+      $character_names[''] = '';
+      if (isset($node->character))
+      { 
+        foreach($node->character as $character)
+        {
+          $character_names[$character['name']] = $character['name'];
+        }
+      }
+
+      $item_names[''] = '';
+      if (isset($node->item))
+      { 
+        foreach($node->item as $item)
+        {
+          $item_names[$item['name']] = $item['name'];
+        }
+      }
+
+      $room_names[''] = '';
+      if (isset($node->room))
+      { 
+        foreach($node->room as $room)
+        {
+          $room_names[$room['name']] = $room['name'];
+        }
+      }
+
+
+      if (isset($form_state['game_room_count']))
+      {
+        $game_room_count = $form_state['game_room_count'];
+      } else {
+        $game_room_count = max(2, empty($node->room)? 2 : count($node->room) + 1);
+      }
+
+      $form['game_room_wrapper'] = array(
+        '#tree' => TRUE,
+        '#type' => 'fieldset',
+        '#title' => t('Game Rooms'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+
+      $room_choices = _emptycrate_room_choices();
+
+      for ($delta = 0; $delta < $game_room_count; $delta++)
+      {
+        $rid = isset($node->room[$delta]['rid']) ? $node->room[$delta]['rid'] : 0;
+        $name = isset($node->room[$delta]['rid']) ? $node->room[$delta]['name'] : '';
+        $displayed_name = isset($node->room[$delta]['displayed_name']) ? $node->room[$delta]['displayed_name'] : '';
+        $description = isset($node->room[$delta]['description']) ? $node->room[$delta]['description'] : '';
+        $enter_script = isset($node->room[$delta]['enter_room_script']) ? $node->room[$delta]['enter_room_script'] : '';
+        $exit_script = isset($node->room[$delta]['exit_room_script']) ? $node->room[$delta]['exit_room_script'] : '';
+
+        $form['game_room_wrapper'][$delta] = _emptycrate_game_room_form($delta, $room_choices, $rid, $name, $displayed_name, $description, $enter_script, $exit_script, $node->room[$delta], $character_names, $room_names, $item_names);
+      }
+
+      $form['starting_room_name'] = array(
+        '#type' => 'select',
+        '#title' => t('Name of room to start in when gameplay begins'),
+        '#default_value' => variable_get('starting_room_name', $node->starting_room_name),
+        '#options' => $room_names,
+      );
+
+      $form['start_game_script'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Script to execute when game starts'),
+        '#default_value' => $node->start_game_script,
+      );
+
+      $form['end_game_success_script'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Script to execute when end game success event occurs'),
+        '#default_value' => $node->end_game_success_script,
+      );
+
+      $form['end_game_failure_script'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Script to execute when end game failure event occurs'),
+        '#default_value' => $node->end_game_failure_script,
+      );
+
+
+      break;
+  }
+
+  return $form;
+}
+
+
+function emptycrate_menu()
+{
+  $items['emptycrate/game_data/%'] = array(
+    'title' => 'Emptycrate Game Data',
+    'page callback' => '_emptycrate_game_data',
+    'page arguments' => array(2),
+    'access arguments' => array('play emptycrate games'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function emptycrate_delete($node)
+{
+  db_query('DELETE FROM {emptycrate_character_template} WHERE nid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_template} WHERE nid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_game} WHERE nid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_question} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_character_response} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_in_game} WHERE gid = %d OR rid = %d', $node->nid, $node->nid);
+  db_query('DELETE FROM {emptycrate_character_in_game} WHERE gid = %d OR cid = %d', $node->nid, $node->nid);
+  db_query('DELETE FROM {emptycrate_character_in_room} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_exit} WHERE rid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_item_template} WHERE nid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_item_in_game} WHERE gid = %d OR iid = %d', $node->nid, $node->nid);
+  db_query('DELETE FROM {emptycrate_item_game_script} WHERE gid = %d', $node->nid);
+}
+
+function _emptycrate_update_room_exits($node)
+{
+  db_query('DELETE FROM {emptycrate_room_exit} WHERE rid = %d', $node->nid);
+
+  foreach($node->exit as $exit)
+  {
+    
+    if (isset($exit['image']) && $exit['image'] != 0
+        && isset($exit['name']) && $exit['name'] != '')
+    {
+      db_query("INSERT INTO {emptycrate_room_exit} (rid, image, name, x, y) VALUES (%d, %d, '%s', %d, %d)", $node->nid, $exit['image'], $exit['name'], $exit['x'], $exit['y']);
+    }
+  }
+}
+
+function _emptycrate_update_game_characters($node)
+{
+  db_query('DELETE FROM {emptycrate_character_in_game} WHERE gid = %d', $node->nid);
+
+  foreach($node->character as $character)
+  {
+    
+    if (isset($character['cid']) && $character['cid'] != 0)
+    {
+      db_query("INSERT INTO {emptycrate_character_in_game} (gid, cid, name, displayed_name, description) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $character['cid'], $character['name'], $character['displayed_name'], $character['description']);
+    }
+  }
+}
+
+function _emptycrate_update_game_items($node)
+{
+  db_query('DELETE FROM {emptycrate_item_in_game} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_item_game_script} WHERE gid = %d', $node->nid);
+
+  foreach($node->item as $item)
+  {
+    
+    if (isset($item['iid']) && $item['iid'] != 0)
+    {
+      db_query("INSERT INTO {emptycrate_item_in_game} (gid, iid, name, displayed_name, description) VALUES (%d, %d, '%s', '%s', '%s')", $node->nid, $item['iid'], $item['name'], $item['displayed_name'], $item['description']);
+
+      if (isset($item['script']))
+      {
+        foreach($item['script'] as $script)
+        {
+          if (isset($script['script']) && $script['script'] != '')
+          {
+            db_query("INSERT INTO {emptycrate_item_game_script} (gid, item_name, test_flag, room_name, object_type, object_name, script) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s')", $node->nid, $item['name'], $script['test_flag'], $script['room_name'], $script['object_type'], $script['object_name'], $script['script']);
+          }
+        }
+      }
+    }
+  }
+}
+
+function _emptycrate_update_game_rooms($node)
+{
+  db_query('DELETE FROM {emptycrate_room_in_game} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_character_in_room} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_question} WHERE gid = %d', $node->nid);
+  db_query('DELETE FROM {emptycrate_character_response} WHERE gid=%d', $node->nid);
+  db_query('DELETE FROM {emptycrate_room_game_exit} WHERE gid=%d', $node->nid);
+  db_query('DELETE FROM {emptycrate_item_in_room} WHERE gid=%d', $node->nid);
+
+  foreach($node->room as $room)
+  {
+    
+    if (isset($room['rid']) && $room['rid'] != 0)
+    {
+      db_query("INSERT INTO {emptycrate_room_in_game} (gid, rid, name, displayed_name, description, enter_room_script, exit_room_script) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s')", $node->nid, $room['rid'], $room['name'], $room['displayed_name'], $room['description'], $room['enter_room_script'], $room['exit_room_script']);
+
+      foreach($room['exit'] as $exit)
+      {
+        if (isset($exit['exit_name']) 
+            && $exit['exit_name'] != ''
+            && isset($exit['destination_room']) 
+            && $exit['destination_room'] != '')
+        {
+          db_query("INSERT INTO {emptycrate_room_game_exit} (gid, room_name, exit_name, destination_room, displayed_name, description, test_flag, use_exit_script) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s', '%s')", $node->nid, $room['name'], $exit['exit_name'], $exit['destination_room'], $exit['displayed_name'], $exit['description'], $exit['test_flag'], $exit['use_exit_script']);
+        }
+      }
+
+      foreach($room['item'] as $item)
+      {
+        if (isset($item['item_name']) 
+            && $item['item_name'] != '')
+        {
+          db_query("INSERT INTO {emptycrate_item_in_room} (gid, room_name, item_name, takable_flag, x, y) VALUES (%d, '%s', '%s', '%s', %d, %d)", $node->nid, $room['name'], $item['item_name'], $item['takable_flag'], $item['x'], $item['y']);
+        }
+      }
+
+
+      foreach($room['character'] as $character)
+      {
+        if (isset($character['character_name']) 
+            && $character['character_name'] != '')
+        {
+          db_query("INSERT INTO {emptycrate_character_in_room} (gid, room_name, character_name, x, y) VALUES (%d, '%s', '%s', %d, %d)", $node->nid, $room['name'], $character['character_name'], $character['x'], $character['y']);
+        }
+      }
+
+      $question_order = 0;
+      foreach($room['question'] as $question)
+      {
+        if (isset($question['question'])
+            && $question['question'] != '')
+        {
+          db_query("INSERT INTO {emptycrate_room_question} (gid, room_name, question_order, character_name, question, test_flag, script) VALUES (%d, '%s', %d, '%s', '%s', '%s', '%s')", $node->nid, $room['name'], $question_order, $question['character_name'], $question['question'], $question['test_flag'], $question['script']);
+
+
+          $response_order = 0;
+            foreach($question['response'] as $response)
+            {
+              if (isset($response['response'])
+                  && $response['response'] != '')
+              {
+                db_query("INSERT INTO {emptycrate_character_response} (gid, room_name, question_order, response_order, character_name, response) VALUES (%d, '%s', %d, %d, '%s', '%s')", $node->nid, $room['name'], $question_order, $response_order, $response['character_name'], $response['response']);
+    
+                $response_order++;
+              }
+            }
+
+          $question_order++;
+        }
+      }
+    }
+  }
+}
+
+
+
+function emptycrate_insert($node)
+{
+  switch ($node->type)
+  {
+    case "media":
+      break;
+    case "item_template":
+      db_query("INSERT INTO {emptycrate_item_template} (nid, image) VALUES (%d, %d)", $node->nid, $node->image);
+      break;
+    case "character_template":
+      db_query("INSERT INTO {emptycrate_character_template} (nid, image) VALUES (%d, %d)", $node->nid, $node->image);
+      break;
+    case "room_template":
+      db_query("INSERT INTO {emptycrate_room_template} (nid, background) VALUES (%d, %d)", $node->nid, $node->background);
+      _emptycrate_update_room_exits($node);
+      break;
+    case "game":
+      db_query("INSERT INTO {emptycrate_game} (nid, starting_room_name, start_game_script, end_game_success_script, end_game_failure_script) VALUES (%d, '%s', '%s', '%s', '%s')", $node->nid, $node->starting_room_name, $node->start_game_script, $node->end_game_success_script, $node->end_game_failure_script);
+      _emptycrate_update_game_items($node);
+      _emptycrate_update_game_characters($node);
+      _emptycrate_update_game_rooms($node);
+      break;
+  }
+}
+function emptycrate_update($node)
+{
+  switch ($node->type)
+  {
+    case "media":
+      break;
+    case "item_template":
+      db_query("UPDATE {emptycrate_item_template} SET image = %d WHERE nid = %d", $node->image, $node->nid);
+      break;
+    case "character_template":
+      db_query("UPDATE {emptycrate_character_template} SET image = %d WHERE nid = %d", $node->image, $node->nid);
+      break;
+    case "room_template":
+      db_query("UPDATE {emptycrate_room_template} SET background = %d WHERE nid = %d", $node->background, $node->nid);
+      _emptycrate_update_room_exits($node);
+      break;
+    case "game":
+      db_query("UPDATE {emptycrate_game} SET starting_room_name = '%s', start_game_script='%s', end_game_success_script='%s', end_game_failure_script='%s'  WHERE nid = %d", $node->starting_room_name, $node->start_game_script, $node->end_game_success_script, $node->end_game_failure_script, $node->nid);
+      _emptycrate_update_game_items($node);
+      _emptycrate_update_game_characters($node);
+      _emptycrate_update_game_rooms($node);
+      break;
+  }
+
+  return $additions;
+}
+
+function _emptycrate_add_media_elements(&$node)
+{
+  $content["media"] = array(
+    '#value' => "Media Elements",
+  );
+
+  if (isset($node->files))
+  { 
+    foreach ($node->files as $file)
+    {
+      $content[$file->description] = array(
+        '#value' => '<img src="'.(file_create_url($file->filepath)).'"/>',
+        '#weight' => $file->weight,
+      );
+    }
+  }
+
+  return $content;
+}
+
+function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+
+  switch ($node->type)
+  {
+    case "media":
+      $node->content += _emptycrate_add_media_elements($node);
+      break;
+    case "character_template":
+      $node->content += _emptycrate_add_media_elements(node_load($node->image));
+      break;
+    case "item_template":
+      $node->content += _emptycrate_add_media_elements(node_load($node->image));
+      break;
+    case "room_template":
+      $node->content += _emptycrate_add_media_elements(node_load($node->background));
+      break;
+    case "game":
+      if ($page)
+      {
+        $node->content["game_viewer"] = array(
+          '#value' => "<object id='MyApp' classid='clsid:D27CDB6E-AE6D-11cf-96B8-444553540000'
+          codebase='http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0'
+          height='100%' width='100%'>
+          <param name='src' value='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."'/>
+          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='800px' width='100%'/>
+          </object>",
+        );
+      } 
+        
+        
+      break;
+  }
+
+  return $node;
+}
+
+
+function emptycrate_load($node)
+{
+  switch ($node->type)
+  {
+    case "media":
+      break;
+    case "item_template":
+      $additions = db_fetch_object(db_query("SELECT image FROM {emptycrate_item_template} WHERE nid = %d", $node->nid));
+      break;
+    case "character_template":
+      $additions = db_fetch_object(db_query("SELECT image FROM {emptycrate_character_template} WHERE nid = %d", $node->nid));
+      break;
+    case "room_template":
+      $additions = db_fetch_object(db_query("SELECT background FROM {emptycrate_room_template} WHERE nid = %d", $node->nid));
+      $result = db_query("SELECT image, name, x, y from {emptycrate_room_exit} WHERE rid = %d", $node->nid);
+      $additions->exit = array();
+      while ($room_exit = db_fetch_array($result))
+      {
+        $additions->exit[] = $room_exit;
+      }
+
+      break;
+    case "game":
+      $additions = db_fetch_object(db_query("SELECT starting_room_name, start_game_script, end_game_success_script, end_game_failure_script FROM {emptycrate_game} WHERE nid = %d", $node->nid));
+
+      $result = db_query("SELECT cid, name, displayed_name, description from {emptycrate_character_in_game} WHERE gid = %d", $node->nid);
+      $additions->character = array();
+      while ($character_in_game = db_fetch_array($result))
+      {
+        $additions->character[] = $character_in_game;
+      }
+
+      $result = db_query("SELECT iid, name, displayed_name, description from {emptycrate_item_in_game} WHERE gid = %d", $node->nid);
+      $additions->item = array();
+      while ($item_in_game = db_fetch_array($result))
+      {
+        $item_script_result = db_query("SELECT test_flag, room_name, object_type, object_name, script FROM {emptycrate_item_game_script} WHERE gid = %d AND item_name = '%s'", $node->nid, $item_in_game['name']);
+        $item_in_game['script'] = array();
+        while ($item_script = db_fetch_array($item_script_result))
+        {
+          $item_in_game['script'][] = $item_script;
+        }
+        $additions->item[] = $item_in_game;
+      }
+
+
+      $result = db_query("SELECT rid, name, displayed_name, description, enter_room_script, exit_room_script from {emptycrate_room_in_game} WHERE gid = %d", $node->nid);
+
+      $additions->room = array();
+      while ($room_in_game = db_fetch_array($result))
+      {
+        $room_exit_result = db_query("SELECT exit_name, destination_room, displayed_name, description, test_flag, use_exit_script from {emptycrate_room_game_exit} WHERE gid = %d AND room_name = '%s'", $node->nid, $room_in_game['name']);
+
+        $room_in_game['exit'] = array();
+        while ($exit_in_room = db_fetch_array($room_exit_result))
+        {
+          $room_in_game['exit'][] = $exit_in_room;
+        }
+
+
+        $room_item_result = db_query("SELECT item_name, takable_flag, x, y from {emptycrate_item_in_room} WHERE gid = %d AND room_name = '%s'", $node->nid, $room_in_game['name']);
+
+        $room_in_game['item'] = array();
+        while ($item_in_room = db_fetch_array($room_item_result))
+        {
+          $room_in_game['item'][] = $item_in_room;
+        }
+
+
+
+        $room_character_result = db_query("SELECT character_name, x, y from {emptycrate_character_in_room} WHERE gid = %d AND room_name = '%s'", $node->nid, $room_in_game['name']);
+
+        $room_in_game['character'] = array();
+        while ($character_in_room = db_fetch_array($room_character_result))
+        {
+          $room_in_game['character'][] = $character_in_room;
+        }
+
+        $room_question_result = db_query("SELECT question_order, character_name, question, test_flag, script FROM {emptycrate_room_question} WHERE gid=%d AND room_name='%s' ORDER BY question_order", $node->nid, $room_in_game['name']);
+        $room_in_game['question'] = array();
+        while ($question = db_fetch_array($room_question_result))
+        {
+          $character_response_result = db_query("SELECT character_name, response FROM {emptycrate_character_response} WHERE gid=%d AND room_name='%s' AND question_order=%d ORDER BY response_order", $node->nid, $room_in_game['name'], $question['question_order']);
+          $question['response'] = array();
+          while ($response = db_fetch_array($character_response_result))
+          {
+            $question['response'][] = $response;
+          }
+          $room_in_game['question'][] = $question;
+          
+        }
+
+        $additions->room[] = $room_in_game;
+      }
+
+      break;
+  }
+
+  return $additions;
+}
+
+function _emptycrate_game_data($id)
+{
+  if (!is_numeric($id))
+  {
+    return drupal_access_denied();
+  }
+  $node = node_load($id);
+
+  if ($node->type != 'game')
+  {
+    return drupal_access_denied();
+  }
+  
+  $result = db_query("SELECT image as mid FROM {emptycrate_item_in_game} JOIN {emptycrate_item_template} where iid = nid and gid = %d UNION SELECT image as mid FROM {emptycrate_character_in_game} JOIN {emptycrate_character_template} where cid = nid and gid = %d UNION SELECT background as mid FROM {emptycrate_room_in_game} JOIN {emptycrate_room_template} where rid = nid and gid = %d UNION SELECT image as mid FROM {emptycrate_room_exit} re JOIN {emptycrate_room_in_game} rig  WHERE re.rid = rig.rid and gid = %d", $node->nid, $node->nid, $node->nid, $node->nid);
+  while ($mediaid = db_fetch_array($result))
+  {
+    $media = node_load($mediaid["mid"]);
+    foreach ($media->files as $file)
+    {
+      $media->file_urls[] = file_create_url($file->filepath);
+    }
+    print drupal_to_js($media);
+    print "\n";
+  }
+
+  $result = db_query("SELECT distinct(iid) FROM {emptycrate_item_in_game} WHERE gid = %d", $node->nid);
+  while ($itemid = db_fetch_array($result))
+  {
+    $item = node_load($itemid["iid"]);
+    print drupal_to_js($item);
+    print "\n";
+  }
+
+
+  $result = db_query("SELECT distinct(cid) FROM {emptycrate_character_in_game} WHERE gid = %d", $node->nid);
+  while ($characterid = db_fetch_array($result))
+  {
+    $character = node_load($characterid["cid"]);
+    print drupal_to_js($character);
+    print "\n";
+  }
+
+  $result = db_query("SELECT distinct(rid) FROM {emptycrate_room_in_game} WHERE gid = %d", $node->nid);
+  while ($roomid = db_fetch_array($result))
+  {
+    $room = node_load($roomid["rid"]);
+    print drupal_to_js($room);
+    print "\n";
+  }
+
+  print drupal_to_js($node); 
+
+}
+
+
+?>
