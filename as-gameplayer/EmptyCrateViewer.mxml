@@ -458,7 +458,25 @@
         {
           return true;
         } else { 
-          return m_Game_Data.flags[flag_name] == true;
+          var flag:String = flag_name;
+          var negate:Boolean = false;
+
+          if (flag_name.charAt(0) == '!')
+          {
+            flag = flag_name.slice(1);
+            negate = true;
+          }
+
+          log("Testing flag: " + flag);
+
+          var val:Boolean = (m_Game_Data.flags[flag] == true);
+          
+          if (negate)
+          {
+            return !val;
+          } else {
+            return val;
+          }
         }
       }
 
@@ -563,7 +581,7 @@
 
 
   <mx:Panel title="Game Info" width="100%" height="100%">
-    <mx:TextArea id="rteText" width="80%" height="25%" editable="false"/>
+    <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
       <mx:Image id="background"/>
