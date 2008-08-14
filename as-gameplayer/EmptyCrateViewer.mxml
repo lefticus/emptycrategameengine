@@ -19,6 +19,7 @@
 
       private var m_Menu:Menu;
       private var m_Game_Data:Object;
+      private var m_Inventory_Drag_Images:Object = new Object();
 
       [Bindable]
       [Embed(source="lookat.png")]
@@ -191,6 +192,13 @@
 
           if (inventory)
           {
+            var dragimg:Image = new Image();
+            dragimg.load(media.file_urls[0]);
+            dragimg.id = img.id;
+            m_Inventory_Drag_Images[img.id] = dragimg;
+
+            img.maxHeight = 64;
+            img.maxWidth = 64;
             inventory_box.addChild(img);  
           } else {
             image_canvas.addChild(img);
@@ -202,10 +210,14 @@
 
       private function removeItem(item_name:String):void
       {
+        var id:String = "item::" + item_name;
+
+        m_Inventory_Drag_Images[id] = null;
+
         for (var i:int = 0; i < inventory_box.numChildren - 1; i++)
         { 
           var img:Image = inventory_box.getChildAt(i) as Image;
-          if (img.id == "item::" + item_name)
+          if (img.id == id)
           {
             inventory_box.removeChildAt(i);
           }
@@ -315,7 +327,7 @@
         return function(event:MouseEvent):void
         {
           var dragInitiator:Image = event.currentTarget as Image;
-          var dragProxy:Image = new Image();
+          var dragProxy:Image = m_Inventory_Drag_Images[dragInitiator.id];
 //          dragProxy.load(event.currentTarget.source.toString());
 //          dragProxy.setActualSize(dragInitiator.width, dragInitiator.height);
 
@@ -323,7 +335,7 @@
 
           dragSource.addData(game_object, "item");
 
-          DragManager.doDrag(dragInitiator, dragSource, event);
+          DragManager.doDrag(dragInitiator, dragSource, event, dragProxy);
         };
       }
 
@@ -581,13 +593,15 @@
   </mx:XML>
 
 
-  <mx:Panel id="game_panel" title="Game Info" width="100%" height="100%">
+  <mx:Panel id="game_panel" title="Game" width="100%" height="100%">
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
       <mx:Image id="background"/>
-    </mx:Canvas>        
-    <mx:HBox id="inventory_box">
-    </mx:HBox>
+    </mx:Canvas>  
+    <mx:Panel id="inventory_panel" title="Inventory" width="100%" height="120">
+      <mx:HBox id="inventory_box" horizontalScrollPolicy="on" width="100%" height="100%">
+      </mx:HBox>
+    </mx:Panel>
     <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
   </mx:Panel>
 </mx:Application>
