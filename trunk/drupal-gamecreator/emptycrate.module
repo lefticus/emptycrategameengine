@@ -70,15 +70,24 @@ function emptycrate_node_info() {
 
 function _emptycrate_media_elements()
 {
+  global $user;
   $options[0] = '';
-  $medianids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'media'");
+  $medianids = db_query("SELECT distinct(nid) FROM {node} WHERE type = 'media' and uid=%d", $user->uid);
   while ($medianid = db_fetch_array($medianids))
   {
     $media = node_load($medianid['nid']);
     $options[$media->nid] = $media->title; 
   } 
 
+  asort($options);
   return $options;
+}
+
+function _emptycrate_check_license($obj)
+{
+  return !isset($obj->cc_lite_licence)
+    || stripos($obj->cc_lite_licence, "nd") !== FALSE
+    || $obj->uid = $user->uid;
 }
 
 function _emptycrate_item_choices()
@@ -89,9 +98,13 @@ function _emptycrate_item_choices()
   while ($itemnid = db_fetch_array($itemnids))
   {
     $item = node_load($itemnid['nid']);
-    $options[$item->nid] = $item->title; 
+    if (_emptycrate_check_license($item))
+    {
+      $options[$item->nid] = $item->title." : ".$item->name; 
+    }
   } 
 
+  asort($options);
   return $options;
 }
 
@@ -103,9 +116,12 @@ function _emptycrate_character_choices()
   while ($characternid = db_fetch_array($characternids))
   {
     $character = node_load($characternid['nid']);
-    $options[$character->nid] = $character->title; 
+    if (_emptycrate_check_license($character))
+    {
+      $options[$character->nid] = $character->title." : ".$character->name; 
+    }
   } 
-
+  asort($options);
   return $options;
 }
 
@@ -130,9 +146,13 @@ function _emptycrate_room_choices()
   while ($nid = db_fetch_array($nids))
   {
     $room = node_load($nid['nid']);
-    $options[$room->nid] = $room->title; 
+    if (_emptycrate_check_license($room))
+    {
+      $options[$room->nid] = $room->title." : ".$room->name;
+    }
   } 
 
+  asort($options);
   return $options;
 }
 
@@ -1192,6 +1212,7 @@ function _emptycrate_add_media_elements(&$node)
 {
   $content["media"] = array(
     '#value' => "Media Elements",
+    '#weight' => -10,
   );
 
   if (isset($node->files))
@@ -1199,7 +1220,7 @@ function _emptycrate_add_media_elements(&$node)
     foreach ($node->files as $file)
     {
       $content[$file->description] = array(
-        '#value' => '<img src="'.(file_create_url($file->filepath)).'"/>',
+        '#value' => '<p><img src="'.(file_create_url($file->filepath)).'"/></p>',
         '#weight' => $file->weight,
       );
     }
@@ -1228,6 +1249,28 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
     case "game":
       if ($page)
       {
+        $header = array('Type', 'Title', 'License', 'Creator');
+        $data = array();
+
+        $result = db_query("SELECT iid as nid FROM {emptycrate_item_in_game} where gid = %d UNION SELECT cid as nid FROM {emptycrate_character_in_game} where gid = %d UNION SELECT rid as nid FROM {emptycrate_room_in_game} WHERE gid = %d", $node->nid, $node->nid, $node->nid);
+
+        while ($nid = db_fetch_array($result))
+        {
+          $n= node_load($nid["nid"]);
+          $data[] = array($n->type, l($n->title, "node/".$n->nid), get_licence_html($n->cc_lite_licence), theme_username(user_load($n->uid)));
+        }
+
+        $fieldset = array(
+          '#title' => 'Components',
+          '#collapsible' => TRUE,
+          '#collapsed' => TRUE,
+          '#value' => "<div>".theme_table($header, $data)."</div>",
+        );
+
+        $node->content["license"] = array(
+          '#value' => theme('fieldset', $fieldset),
+        );
+
         $node->content["game_viewer"] = array(
           '#value' => "<object id='MyApp' classid='clsid:D27CDB6E-AE6D-11cf-96B8-444553540000'
           codebase='http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0'
