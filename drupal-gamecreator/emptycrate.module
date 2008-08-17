@@ -85,8 +85,9 @@ function _emptycrate_media_elements()
 
 function _emptycrate_check_license($obj)
 {
+  global $user;
   return !isset($obj->cc_lite_licence)
-    || stripos($obj->cc_lite_licence, "nd") !== FALSE
+    || stripos($obj->cc_lite_licence, "nd") === FALSE
     || $obj->uid = $user->uid;
 }
 
@@ -228,7 +229,7 @@ function _emptycrate_game_room_question_form($questionobj, $roomdelta, $question
   {
     $game_room_response_count = $form_state['game_room_question_'.$questiondelta.'_count_'.$responsedelta];
   } else {
-    $game_room_response_count = max(2, empty($questionobj['response'])? 2 : count($questionobj['response']) + 1);
+    $game_room_response_count = max(1, empty($questionobj['response'])? 1 : count($questionobj['response']) + 1);
   }
 
   $form['game_room_response_wrapper'] = array(
@@ -444,7 +445,7 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
   {
     $game_room_exit_count = $form_state['game_room_exit_count_'].$delta;
   } else {
-    $game_room_exit_count = max(2, empty($room['exit'])? 2 : count($room['exit']) + 1);
+    $game_room_exit_count = max(1, empty($room['exit'])? 1 : count($room['exit']) + 1);
   }
 
   $form['game_room_exit_wrapper'] = array(
@@ -473,7 +474,7 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
   {
     $game_room_item_count = $form_state['game_room_item_count_'].$delta;
   } else {
-    $game_room_item_count = max(2, empty($room['item'])? 2 : count($room['item']) + 1);
+    $game_room_item_count = max(1, empty($room['item'])? 1 : count($room['item']) + 1);
   }
 
   $form['game_room_item_wrapper'] = array(
@@ -499,7 +500,7 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
   {
     $game_room_character_count = $form_state['game_room_character_count_'].$delta;
   } else {
-    $game_room_character_count = max(2, empty($room['character'])? 2 : count($room['character']) + 1);
+    $game_room_character_count = max(1, empty($room['character'])? 1 : count($room['character']) + 1);
   }
 
   $form['game_room_character_wrapper'] = array(
@@ -523,7 +524,7 @@ function _emptycrate_game_room_form($delta, $choices, $rid, $name, $displayed_na
   {
     $game_room_question_count = $form_state['game_room_question_count_'].$delta;
   } else {
-    $game_room_question_count = max(2, empty($room['question'])? 2 : count($room['question']) + 1);
+    $game_room_question_count = max(1, empty($room['question'])? 1 : count($room['question']) + 1);
   }
 
   $form['game_room_question_wrapper'] = array(
@@ -595,7 +596,7 @@ function _emptycrate_game_item_form($delta, $choices, $iid, $name, $displayed_na
   {
     $game_item_script_count = $form_state['game_room_exit_count_'].$delta;
   } else {
-    $game_item_script_count = max(2, empty($item['script'])? 2 : count($item['script']) + 1);
+    $game_item_script_count = max(1, empty($item['script'])? 1 : count($item['script']) + 1);
   }
 
   $form['game_item_script_wrapper'] = array(
@@ -826,7 +827,7 @@ function emptycrate_form(&$node)
       {
         $room_exit_count = $form_state['room_exit_count'];
       } else {
-        $room_exit_count = max(2, empty($node->exit) ? 2 : count($node->exit) + 1);
+        $room_exit_count = max(1, empty($node->exit) ? 1 : count($node->exit) + 1);
       }
 
       $form['room_exit_wrapper'] = array(
@@ -855,7 +856,7 @@ function emptycrate_form(&$node)
       {
         $game_character_count = $form_state['game_character_count'];
       } else {
-        $game_character_count = max(2, empty($node->character) ? 2 : count($node->character) + 1);
+        $game_character_count = max(1, empty($node->character) ? 1 : count($node->character) + 1);
       }
 
       $form['game_character_wrapper'] = array(
@@ -882,7 +883,7 @@ function emptycrate_form(&$node)
       {
         $game_item_count = $form_state['game_item_count'];
       } else {
-        $game_item_count = max(2, empty($node->item) ? 2 : count($node->item) + 1);
+        $game_item_count = max(1, empty($node->item) ? 1 : count($node->item) + 1);
       }
 
       $form['game_item_wrapper'] = array(
@@ -939,7 +940,7 @@ function emptycrate_form(&$node)
       {
         $game_room_count = $form_state['game_room_count'];
       } else {
-        $game_room_count = max(2, empty($node->room)? 2 : count($node->room) + 1);
+        $game_room_count = max(1, empty($node->room)? 1 : count($node->room) + 1);
       }
 
       $form['game_room_wrapper'] = array(
