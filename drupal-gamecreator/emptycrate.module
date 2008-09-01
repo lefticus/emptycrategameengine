@@ -1296,6 +1296,7 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
                   '#value' => '<p>'.l('<img src="'.(file_create_url($file->filepath)).'" width="320"/>',"node/".$node->nid, array('html'=>TRUE)). '</p>',
                   '#weight' => $file->weight,
                 );
+                break;
               }
             }
 
