@@ -1280,8 +1280,29 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
           <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='800px' width='100%'/>
           </object>",
         );
-      } 
-        
+      } else {
+        foreach ($node->room as $room)
+        {
+          if ($room["name"] == $node->starting_room_name)
+          {
+            $rnode = node_load($room["rid"]);
+            $medianode = node_load($rnode->background);
+
+            if (isset($medianode->files))
+            { 
+              foreach ($medianode->files as $file)
+              {
+                $node->content[$file->description] = array(
+                  '#value' => '<p>'.l('<img src="'.(file_create_url($file->filepath)).'" width="320"/>',"node/".$node->nid, array('html'=>TRUE)). '</p>',
+                  '#weight' => $file->weight,
+                );
+              }
+            }
+
+            break;
+          }
+        }
+      }
         
       break;
   }
