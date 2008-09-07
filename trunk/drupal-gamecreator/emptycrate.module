@@ -1275,9 +1275,9 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
         $node->content["game_viewer"] = array(
           '#value' => "<object id='MyApp' classid='clsid:D27CDB6E-AE6D-11cf-96B8-444553540000'
           codebase='http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0'
-          height='100%' width='100%'>
+          height='700px' width='700px'>
           <param name='src' value='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."'/>
-          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='800px' width='100%'/>
+          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='700px' width='700px'/>
           </object>",
         );
       } else {
