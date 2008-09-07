@@ -532,13 +532,17 @@
 
       private function dragDropHandler(event:DragEvent):void
       {
+        import mx.core.Container;
+
         log("dragDropHandler called");
         var p:Point = new Point(event.stageX, event.stageY);
         log(p.toString());
+        var cont:Container = event.currentTarget as Container;
+
 //        var objects:Array = image_canvas.getObjectsUnderPoint(p);
-        for (var i:int = image_canvas.numChildren - 1; i > 0; i--)
+        for (var i:int = cont.numChildren - 1; i > 0; i--)
         { 
-          var img:Image = image_canvas.getChildAt(i) as Image;
+          var img:Image = cont.getChildAt(i) as Image;
           if (img.hitTestPoint(event.stageX, event.stageY))
           {
             log(img.id);
@@ -550,10 +554,9 @@
 
       private function dragEnterHandler(event:DragEvent):void
       {
-        var dropTarget:Canvas = event.currentTarget as Canvas;
         if (event.dragSource.hasFormat('item'))
         {
-          DragManager.acceptDragDrop(dropTarget);
+          DragManager.acceptDragDrop((event.currentTarget as mx.core.UIComponent));
         }
       }
 
@@ -608,7 +611,7 @@
       <mx:Image id="background"/>
     </mx:Canvas>  
     <mx:Panel id="inventory_panel" title="Inventory" width="100%" minHeight="100">
-      <mx:HBox id="inventory_box" horizontalScrollPolicy="on" width="100%" height="100%">
+      <mx:HBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" horizontalScrollPolicy="on" width="100%" height="100%">
       </mx:HBox>
     </mx:Panel>
     <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
