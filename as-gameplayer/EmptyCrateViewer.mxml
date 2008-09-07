@@ -39,6 +39,15 @@
 
 
       [Bindable]
+      [Embed(source="use.png")]
+      public var UseItemIcon:Class;
+
+      [Bindable]
+      [Embed(source="take.png")]
+      public var TakeItemIcon:Class;
+
+
+      [Bindable]
       public var gameURL:String;
 
       private function log(msg:String):void
