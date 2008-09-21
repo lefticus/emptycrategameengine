@@ -77,6 +77,8 @@
         var rawData:String = String(event.result);
         var pattern:RegExp = /\\\'/g;
         rawData = rawData.replace(pattern, "'");
+        pattern = /\\r/g;
+        rawData = rawData.replace(pattern, "");
         var data:Array = rawData.split("\n");
 
         var game:Object;
