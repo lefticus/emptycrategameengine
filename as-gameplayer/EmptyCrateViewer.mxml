@@ -223,7 +223,7 @@
 
         m_Inventory_Drag_Images[id] = null;
 
-        for (var i:int = 0; i < inventory_box.numChildren - 1; i++)
+        for (var i:int = 0; i < inventory_box.numChildren; i++)
         { 
           var img:Image = inventory_box.getChildAt(i) as Image;
           if (img.id == id)
@@ -288,7 +288,10 @@
             }
 
           } else if (eventname == "use") {
-            useItem(game_object.name, m_Game_Data.current_room.name, "", "");
+            if (!useItem(game_object.name, m_Game_Data.current_room.name, "", ""))
+            {
+              Alert.show("Nothing Happens", "Message");
+            }
           } else if (eventname == "lookat") {
             
             log("Lookat menu event");
@@ -502,7 +505,7 @@
         }
       }
 
-      private function useItem(item_name:Object, room_name:String, object_type:String, object_name:String):void
+      private function useItem(item_name:Object, room_name:String, object_type:String, object_name:String):Boolean
       {
         var used:Boolean = false;
 
@@ -514,13 +517,11 @@
               && (script.object_name == "" || script.object_name == object_name))
           {
             playScript(script.script);
-            used=true;
+            used = true;
           }
         }
-        if (!used)
-        {
-          Alert.show("Nothing happens", "Message");
-        }
+
+        return used;
       }
 
 
@@ -539,6 +540,8 @@
         log(p.toString());
         var cont:Container = event.currentTarget as Container;
 
+        var used:Boolean = false;
+
 //        var objects:Array = image_canvas.getObjectsUnderPoint(p);
         for (var i:int = cont.numChildren - 1; i >= 0; i--)
         { 
@@ -547,8 +550,16 @@
           {
             log(img.id);
             var objname:Object = decodeObjectID(img.id);
-            useItem(event.dragSource.dataForFormat("item").name, m_Game_Data.current_room.name, objname.type, objname.name)
+            if (useItem(event.dragSource.dataForFormat("item").name, m_Game_Data.current_room.name, objname.type, objname.name))
+            {
+              used = true;
+            }
           }
+        }
+
+        if (!used)
+        {
+          Alert.show("Nothing Happens", "Message");
         }
       }
 
