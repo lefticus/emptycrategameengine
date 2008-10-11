@@ -165,6 +165,10 @@
           case "end_game_failure":
             endGameFailure();
             break;
+          case "set_subtitle":
+            params.shift();
+            subtitle.text = params.join(" ");
+            break;
           case "show_message":
             params.shift();
             Alert.show(params.join(" "), "Message");
@@ -623,6 +627,7 @@
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
       <mx:Image id="background"/>
     </mx:Canvas>  
+    <mx:Text id="subtitle" width="100%"/>
     <mx:Panel id="inventory_panel" title="Inventory" width="100%" minHeight="100">
       <mx:HBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" horizontalScrollPolicy="on" width="100%" height="100%">
       </mx:HBox>
