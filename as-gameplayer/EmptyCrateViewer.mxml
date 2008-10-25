@@ -303,6 +303,12 @@
         }
       }
 
+      private function lookAtRoom(room:Object=null):void
+      {
+        if (room == null) { room = m_Game_Data.current_room; }
+        Alert.show(room.description, room.displayed_name);
+      }
+
       private function lookAtEvent(object_type:String, game_object:Object, room_object:Object):void
       {       
         log("Lookat menu event");
@@ -478,7 +484,12 @@
           characterimage.addEventListener(MouseEvent.CLICK, buildClickHandler(character_base, character, room_character, "character"));
         }
 
-        Alert.show(room.description, room.displayed_name);
+        if (!room.seen)
+        {
+          lookAtRoom(room);
+          room.seen = true;
+        } 
+        
         playScript(room.enter_room_script);
       }
 
@@ -693,7 +704,7 @@
   <mx:Panel id="game_panel" title="Game" minWidth="640" minHeight="580" >
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
-      <mx:Image id="background" width="640" height="480" />
+      <mx:Image id="background" width="640" height="480" click="lookAtRoom();"/>
     </mx:Canvas>  
     <mx:Text id="subtitle" width="100%" />
     <mx:Panel id="inventory_panel" title="Inventory" width="640" minHeight="75" >
