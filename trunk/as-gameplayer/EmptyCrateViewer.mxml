@@ -21,6 +21,7 @@
       private var m_Game_Data:Object;
       private var m_Inventory_Drag_Images:Object = new Object();
 
+
       [Bindable]
       [Embed(source="lookat.png")]
       public var LookAtIcon:Class;
@@ -46,6 +47,7 @@
       [Embed(source="take.png")]
       public var TakeItemIcon:Class;
 
+      private var m_Actions:Array = new Array(null, LookAtIcon, TalkToIcon, UseExitIcon, UseItemIcon, TakeItemIcon);
 
       [Bindable]
       public var gameURL:String;
@@ -58,6 +60,7 @@
       private function initVars():void
       {
         gameURL = "http://game.emptycrate.com/emptycrate/game_data/" + Application.application.parameters.gameid;
+        
       }
 
       private function findObject(a:Array, field:String, value:Object):Object
@@ -112,6 +115,8 @@
               log("Uknown objtype: " + arr.type);
           }
         }	
+
+        stage.addEventListener(KeyboardEvent.KEY_DOWN, rotateAction, false, 100);
 
         var gamedata:Object = {media:media, game:game, character_template:character_template, room_template:room_template, item_template:item_template};
         playGame(gamedata);
@@ -266,6 +271,79 @@
         return true;
       }
 
+      private function useExitEvent(exit:Object):void
+      {
+        log("Useexit menu event");
+        if (testFlag(exit.test_flag))
+        {
+          playScript(exit.use_exit_script);
+          showRoom(exit.destination_room);
+        } else {
+          Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
+        }
+      }
+
+      private function takeItemEvent(game_object:Object, clicked_image:Image):void
+      {
+        log("Take menu event: " + game_object.name);
+
+        if (takeItem(game_object.name, m_Game_Data.current_room.name))
+        {
+          image_canvas.removeChild(clicked_image);
+        } else {
+          Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
+        }
+      }
+
+      private function useItemEvent(game_object:Object):void
+      {
+        if (!useItem(game_object.name, m_Game_Data.current_room.name, "", ""))
+        {
+          Alert.show("Nothing Happens", "Message");
+        }
+      }
+
+      private function lookAtEvent(object_type:String, game_object:Object, room_object:Object):void
+      {       
+        log("Lookat menu event");
+        if (object_type == "exit")
+        {
+          Alert.show(room_object.description, room_object.displayed_name);
+        } else {
+          Alert.show(game_object.description, game_object.displayed_name);
+        }
+      }
+
+      private function talkToEvent(game_object:Object, x:int, y:int):void
+      {
+        log("talkto menu event");
+        var col:ArrayCollection = new ArrayCollection();
+
+        var questions:Array = m_Game_Data.current_room.question.filter(
+          function(item:*, index:int, array:Array):Boolean 
+          {
+            return item.character_name == game_object.name
+                   && testFlag(item.test_flag);
+          },
+          null
+        );
+
+        for each (var q:Object in questions)
+        {
+          col.addItem(q);
+        }
+
+        if (col.length == 0)
+        {
+          Alert.show("...", game_object.displayed_name);
+        } else {
+          m_Menu = Menu.createMenu(image_canvas, col, false);
+          m_Menu.labelField="question";
+          m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
+          m_Menu.show(x,y);
+        }
+      }
+
       private function buildObjectMenuHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String, clicked_image:Image):Function
       {
         return function(event:MenuEvent):void
@@ -275,65 +353,15 @@
 
           if (eventname == "useexit")
           {
-            log("Useexit menu event");
-            if (testFlag(room_object.test_flag))
-            {
-              playScript(room_object.use_exit_script);
-              showRoom(room_object.destination_room);
-            } else {
-              Alert.show("The exit is locked.", "Notice", Alert.OK, null, null, LockedIcon);
-            }
+            useExitEvent(room_object);
           } else if (eventname == "take") {
-            log("Take menu event: " + game_object.name);
-
-            if (takeItem(game_object.name, m_Game_Data.current_room.name))
-            {
-              image_canvas.removeChild(clicked_image);
-            } else {
-              Alert.show("The item cannot be taken.", "Notice", Alert.OK, null, null, LockedIcon);
-            }
-
+            takeItemEvent(game_object, clicked_image);
           } else if (eventname == "use") {
-            if (!useItem(game_object.name, m_Game_Data.current_room.name, "", ""))
-            {
-              Alert.show("Nothing Happens", "Message");
-            }
+            useItemEvent(game_object);
           } else if (eventname == "lookat") {
-            
-            log("Lookat menu event");
-            if (object_type == "exit")
-            {
-              Alert.show(room_object.description, room_object.displayed_name);
-            } else {
-              Alert.show(game_object.description, game_object.displayed_name);
-            }
+            lookAtEvent(object_type, game_object, room_object);
           } else if (eventname == "talkto") {
-            log("talkto menu event");
-            var col:ArrayCollection = new ArrayCollection();
-
-            var questions:Array = m_Game_Data.current_room.question.filter(
-              function(item:*, index:int, array:Array):Boolean 
-              {
-                return item.character_name == game_object.name
-                       && testFlag(item.test_flag);
-              },
-              null
-            );
-
-            for each (var q:Object in questions)
-            {
-              col.addItem(q);
-            }
-
-            if (col.length == 0)
-            {
-              Alert.show("...", game_object.displayed_name);
-            } else {
-              m_Menu = Menu.createMenu(image_canvas, col, false);
-              m_Menu.labelField="question";
-              m_Menu.addEventListener("itemClick", characterTalkToMenuHandler);
-              m_Menu.show(event.menu.x,event.menu.y);
-            }
+            talkToEvent(game_object, event.menu.x, event.menu.y);
           } else {
             log("unknown menu event");
           }
@@ -361,26 +389,40 @@
       {
         return function(event:MouseEvent):void
         {
-          switch(object_type)
-          {
-            case "exit":
-              m_Menu = Menu.createMenu(image_canvas, exitMenuData, false);
-              break;
-            case "item":
-              m_Menu = Menu.createMenu(image_canvas, itemMenuData, false);
-              break;
-            case "character":
-              m_Menu = Menu.createMenu(image_canvas, characterMenuData, false);
-              break;
-            case "inventoryitem":
-              m_Menu = Menu.createMenu(image_canvas, inventoryMenuData, false);
-              break;
-          };
-          m_Menu.labelField="@label";
-          m_Menu.iconField="@icon";
           var img:Image = event.currentTarget as Image;
-          m_Menu.addEventListener("itemClick", buildObjectMenuHandler(base_object, game_object, room_object, object_type, img));
-          m_Menu.show(event.stageX, event.stageY);
+
+          if (m_Actions[0] == TakeItemIcon) 
+          {
+            takeItemEvent(game_object, img);
+          } else if (m_Actions[0] == TalkToIcon) {
+            talkToEvent(game_object, event.stageX, event.stageY);
+          } else if (m_Actions[0] == UseExitIcon) {
+            useExitEvent(room_object);
+          } else if (m_Actions[0] == UseItemIcon) {
+            useItemEvent(game_object);
+          } else if (m_Actions[0] == LookAtIcon) {
+            lookAtEvent(object_type, game_object, room_object);
+          } else {
+            switch(object_type)
+            {
+              case "exit":
+                m_Menu = Menu.createMenu(image_canvas, exitMenuData, false);
+                break;
+              case "item":
+                m_Menu = Menu.createMenu(image_canvas, itemMenuData, false);
+                break;
+              case "character":
+                m_Menu = Menu.createMenu(image_canvas, characterMenuData, false);
+                break;
+              case "inventoryitem":
+                m_Menu = Menu.createMenu(image_canvas, inventoryMenuData, false);
+                break;
+            };
+            m_Menu.labelField="@label";
+            m_Menu.iconField="@icon";
+            m_Menu.addEventListener("itemClick", buildObjectMenuHandler(base_object, game_object, room_object, object_type, img));
+            m_Menu.show(event.stageX, event.stageY);
+          }
         };
       }
 
@@ -577,6 +619,32 @@
         }
       }
 
+      private function rotateAction(event:Event):void
+      {
+        var ke:KeyboardEvent = event as KeyboardEvent;
+        var me:MouseEvent = event as MouseEvent;
+
+        if (ke != null && ke.keyCode != flash.ui.Keyboard.SPACE)
+        {
+          return;
+        }
+
+        m_Actions.push(m_Actions.shift());
+        updateCursor();
+      }
+
+      private function updateCursor():void
+      {
+        mx.managers.CursorManager.removeAllCursors();
+
+        if (m_Actions[0] != null)
+        {
+          mx.managers.CursorManager.setCursor(m_Actions[0]);
+          mx.managers.CursorManager.showCursor();
+        }
+        image_canvas.setFocus();    
+      }
+
     ]]>
   </mx:Script>
 	
@@ -622,16 +690,16 @@
   </mx:XML>
 
 
-  <mx:Panel id="game_panel" title="Game" width="100%" height="100%">
+  <mx:Panel id="game_panel" title="Game" minWidth="640" minHeight="580" >
 
-    <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);">
-      <mx:Image id="background"/>
+    <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
+      <mx:Image id="background" width="640" height="480" />
     </mx:Canvas>  
-    <mx:Text id="subtitle" width="100%"/>
-    <mx:Panel id="inventory_panel" title="Inventory" width="100%" minHeight="100">
-      <mx:HBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" horizontalScrollPolicy="on" width="100%" height="100%">
+    <mx:Text id="subtitle" width="100%" />
+    <mx:Panel id="inventory_panel" title="Inventory" width="640" minHeight="75" >
+      <mx:HBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" horizontalScrollPolicy="on" width="100%" height="100%" >
       </mx:HBox>
     </mx:Panel>
-    <mx:TextArea id="rteText" width="80%" height="25%" editable="false" visible="false"/>
+    <mx:TextArea id="rteText" width="640" height="1" editable="false" visible="false" />
   </mx:Panel>
 </mx:Application>
