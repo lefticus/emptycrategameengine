@@ -196,12 +196,15 @@
         showRoom(gamedata.game.starting_room_name);
       }
 
-      private function placeImage(obj:Object, media_id:int, obj_type:String, obj_name:String, inventory:Boolean = false):Image
+      private function placeImage(obj:Object, media_id:int, obj_type:String, obj_name:String, displayed_name:String, inventory:Boolean = false):Image
       {
           var media:Object = m_Game_Data.media[media_id];
           var img:Image = new Image();
-          img.setStyle("rollOverEffect", glowImage);
+//          img.setStyle("rollOverEffect", glowImage);
           img.load(media.file_urls[0]);
+
+          img.addEventListener(MouseEvent.ROLL_OVER, buildRollOverHandler(displayed_name));
+          img.addEventListener(MouseEvent.ROLL_OUT, objectRollOutHandler);
 
           img.id = obj_type + "::" + obj_name;
 
@@ -258,7 +261,7 @@
 
         var item:Object = findObject(m_Game_Data.game.item, "name", item_name);
         var item_base:Object = m_Game_Data.item_template[item.iid];
-        var itemimage:Image = placeImage(item, item_base.image, "item", item.name, true);
+        var itemimage:Image = placeImage(item, item_base.image, "item", item.name, item.displayed_name, true);
 
         itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, null, "inventoryitem"));
         itemimage.addEventListener(MouseEvent.MOUSE_MOVE, buildDragHandler(item_base, item));
@@ -400,6 +403,19 @@
         };
       }
 
+      private function objectRollOutHandler(event:MouseEvent):void
+      {
+        itemtitle.text = "";
+      }
+
+      private function buildRollOverHandler(displayed_name:String):Function
+      {
+        return function(event:MouseEvent):void
+        {
+          itemtitle.text = displayed_name;
+        }
+      }
+ 
       private function buildClickHandler(base_object:Object, game_object:Object, room_object:Object, object_type:String):Function
       {
         return function(event:MouseEvent):void
@@ -466,7 +482,7 @@
         for each (var room_exit:Object in room.exit)
         {
           var exit:Object = findObject(room_base.exit, "name", room_exit.exit_name);
-          var exitimage:Image = placeImage(exit, exit.image, "exit", exit.name);
+          var exitimage:Image = placeImage(exit, exit.image, "exit", exit.name, room_exit.displayed_name);
 
           exitimage.addEventListener(MouseEvent.CLICK, buildClickHandler(null, exit, room_exit, "exit"));
         }
@@ -477,7 +493,7 @@
           {
             var item:Object = findObject(m_Game_Data.game.item, "name", room_item.item_name);
             var item_base:Object = m_Game_Data.item_template[item.iid];
-            var itemimage:Image = placeImage(room_item, item_base.image, "item", item.name);
+            var itemimage:Image = placeImage(room_item, item_base.image, "item", item.name, item.displayed_name);
 
             itemimage.addEventListener(MouseEvent.CLICK, buildClickHandler(item_base, item, room_item, "item"));
           }
@@ -488,7 +504,7 @@
           var character:Object = findObject(m_Game_Data.game.character, "name", room_character.character_name);
 
           var character_base:Object = m_Game_Data.character_template[character.cid];
-          var characterimage:Image = placeImage(room_character, character_base.image, "character", character.name); 
+          var characterimage:Image = placeImage(room_character, character_base.image, "character", character.name, character.displayed_name); 
 
           characterimage.addEventListener(MouseEvent.CLICK, buildClickHandler(character_base, character, room_character, "character"));
         }
@@ -653,6 +669,16 @@
         updateCursor();
       }
 
+      private function toggleFullscreen():void
+      {
+        if (stage.displayState == StageDisplayState.FULL_SCREEN)
+        {
+          stage.displayState = StageDisplayState.NORMAL;
+        } else {
+          stage.displayState = StageDisplayState.FULL_SCREEN;
+        }
+      }
+
       private function updateCursor():void
       {
         mx.managers.CursorManager.removeAllCursors();
@@ -697,17 +723,26 @@
   </mx:XML>
 
 
-  <mx:Panel id="game_panel" title="Game" minWidth="800" minHeight="600" >
-    <mx:HBox>
-    <mx:Panel id="inventory_panel" title="Inventory" minWidth="75" height="480" >
-      <mx:VBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" verticalScrollPolicy="on" width="100%" height="100%" />
-    </mx:Panel>
+  <mx:Panel id="game_panel" title="Game" minWidth="800" minHeight="600" horizontalGap="0" verticalGap="0">
+    <mx:HBox horizontalGap="0">
+      <mx:Panel id="inventory_panel" title="Inventory" minWidth="75" height="475" >
+        <mx:VBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" verticalScrollPolicy="on" width="100%" height="100%" />
+      </mx:Panel>
 
-    <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
-      <mx:Image id="background" width="640" height="480" click="clickOnRoom();"/>
-    </mx:Canvas>  
+      <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
+        <mx:Image id="background" width="640" height="480" click="clickOnRoom();"/>
+      </mx:Canvas>  
     </mx:HBox>
-    <mx:Text id="subtitle" width="100%" />
+
+    <mx:HBox horizontalGap="0" width="100%" minHeight="75">
+      <mx:Panel title="Subtitle" height="100%" width="40%">
+        <mx:Text id="subtitle" height="100%" width="100%"/>
+      </mx:Panel>
+      <mx:Panel title="Current Item" height="100%" width="40%">
+        <mx:Text id="itemtitle"  height="100%" width="100%"/>
+      </mx:Panel>
+      <mx:Button label="Fullscreen" click="toggleFullscreen();"/>
+    </mx:HBox>
     <mx:TextArea id="rteText" width="640" height="1" editable="false" visible="false" />
   </mx:Panel>
 </mx:Application>
