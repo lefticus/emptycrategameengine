@@ -31,13 +31,8 @@
       public var TalkToIcon:Class;
 
       [Bindable]
-      [Embed(source="useexit.png")]
-      public var UseExitIcon:Class;
-
-      [Bindable]
       [Embed(source="locked.svg")]
       public var LockedIcon:Class;
-
 
       [Bindable]
       [Embed(source="use.png")]
@@ -47,7 +42,7 @@
       [Embed(source="take.png")]
       public var TakeItemIcon:Class;
 
-      private var m_Actions:Array = new Array(null, LookAtIcon, TalkToIcon, UseExitIcon, UseItemIcon, TakeItemIcon);
+      private var m_Actions:Array = new Array(null, LookAtIcon, UseItemIcon, TakeItemIcon);
 
       [Bindable]
       public var gameURL:String;
@@ -303,6 +298,20 @@
         }
       }
 
+      private function clickOnRoom():void
+      {
+        if (m_Actions[0] == TakeItemIcon) 
+        {
+          Alert.show("What would you like to take?", "Message");
+        } else if (m_Actions[0] == TalkToIcon) {
+          Alert.show("Who are you trying to talk to?", "Message");
+        } else if (m_Actions[0] == UseItemIcon) {
+          Alert.show("What would you like to use?", "Message");
+        } else {
+          lookAtRoom();
+        }      
+      }
+
       private function lookAtRoom(room:Object=null):void
       {
         if (room == null) { room = m_Game_Data.current_room; }
@@ -397,18 +406,10 @@
         {
           var img:Image = event.currentTarget as Image;
 
-          if (m_Actions[0] == TakeItemIcon) 
+          if (mx.managers.CursorManager.currentCursorID 
+                == mx.managers.CursorManager.NO_CURSOR
+              || m_Actions[0] == null)
           {
-            takeItemEvent(game_object, img);
-          } else if (m_Actions[0] == TalkToIcon) {
-            talkToEvent(game_object, event.stageX, event.stageY);
-          } else if (m_Actions[0] == UseExitIcon) {
-            useExitEvent(room_object);
-          } else if (m_Actions[0] == UseItemIcon) {
-            useItemEvent(game_object);
-          } else if (m_Actions[0] == LookAtIcon) {
-            lookAtEvent(object_type, game_object, room_object);
-          } else {
             switch(object_type)
             {
               case "exit":
@@ -428,6 +429,22 @@
             m_Menu.iconField="@icon";
             m_Menu.addEventListener("itemClick", buildObjectMenuHandler(base_object, game_object, room_object, object_type, img));
             m_Menu.show(event.stageX, event.stageY);
+          } else if (m_Actions[0] == TakeItemIcon) {
+            takeItemEvent(game_object, img);
+          } else if (m_Actions[0] == UseItemIcon) {
+            switch (object_type)
+            {
+              case "exit":
+                useExitEvent(room_object);
+                break;
+              case "character":
+                talkToEvent(game_object, event.stageX, event.stageY);
+                break;
+              default:
+                useItemEvent(game_object);
+            }
+          } else if (m_Actions[0] == LookAtIcon) {
+            lookAtEvent(object_type, game_object, room_object);
           }
         };
       }
@@ -674,14 +691,14 @@
   <mx:XML id="characterMenuData">
     <root>
       <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
-      <menuitem eventName="talkto" label="Talk To" icon="TalkToIcon"/>
+      <menuitem eventName="talkto" label="Talk To" icon="UseItemIcon"/>
     </root>
   </mx:XML>
 
   <mx:XML id="exitMenuData">
     <root>
       <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
-      <menuitem eventName="useexit" label="Use Exit" icon="UseExitIcon"/>
+      <menuitem eventName="useexit" label="Use Exit" icon="UseItemIcon"/>
     </root>
   </mx:XML>
 
@@ -704,7 +721,7 @@
   <mx:Panel id="game_panel" title="Game" minWidth="640" minHeight="580" >
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
-      <mx:Image id="background" width="640" height="480" click="lookAtRoom();"/>
+      <mx:Image id="background" width="640" height="480" click="clickOnRoom();"/>
     </mx:Canvas>  
     <mx:Text id="subtitle" width="100%" />
     <mx:Panel id="inventory_panel" title="Inventory" width="640" minHeight="75" >
