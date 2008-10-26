@@ -1277,7 +1277,8 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
           codebase='http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,0,0'
           height='600px' width='800px'>
           <param name='src' value='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."'/>
-          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='600px' width='800px'/>
+          <param name='allowFullScreen' value='true' />
+          <embed name='EmptyCrateViewer' pluginspage='http://www.macromedia.com/shockwave/download/index.cgi?P1_Prod_Version=ShockwaveFlash' src='http://game.emptycrate.com/EmptyCrateViewer.swf?gameid=".$node->nid."' height='600px' width='800px' allowFullScreen='true'/>
           </object>",
         );
       } else {
