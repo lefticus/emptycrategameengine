@@ -42,7 +42,7 @@
       [Embed(source="take.png")]
       public var TakeItemIcon:Class;
 
-      private var m_Actions:Array = new Array(null, LookAtIcon, UseItemIcon, TakeItemIcon);
+      private var m_Actions:Array = new Array(null, LookAtIcon, TalkToIcon, UseItemIcon, TakeItemIcon);
 
       [Bindable]
       public var gameURL:String;
@@ -366,13 +366,15 @@
           var eventname:String = event.item.@eventName;
           log("Menu Handler: '" + eventname + "'");
 
-          if (eventname == "useexit")
-          {
-            useExitEvent(room_object);
-          } else if (eventname == "take") {
+          if (eventname == "take") {
             takeItemEvent(game_object, clicked_image);
           } else if (eventname == "use") {
-            useItemEvent(game_object);
+            if (object_type == "exit")
+            {
+              useExitEvent(room_object);
+            } else {
+              useItemEvent(game_object);
+            }
           } else if (eventname == "lookat") {
             lookAtEvent(object_type, game_object, room_object);
           } else if (eventname == "talkto") {
@@ -389,8 +391,6 @@
         {
           var dragInitiator:Image = event.currentTarget as Image;
           var dragProxy:Image = m_Inventory_Drag_Images[dragInitiator.id];
-//          dragProxy.load(event.currentTarget.source.toString());
-//          dragProxy.setActualSize(dragInitiator.width, dragInitiator.height);
 
           var dragSource:DragSource = new DragSource();
 
@@ -412,18 +412,11 @@
           {
             switch(object_type)
             {
-              case "exit":
-                m_Menu = Menu.createMenu(image_canvas, exitMenuData, false);
-                break;
-              case "item":
-                m_Menu = Menu.createMenu(image_canvas, itemMenuData, false);
-                break;
-              case "character":
-                m_Menu = Menu.createMenu(image_canvas, characterMenuData, false);
-                break;
               case "inventoryitem":
                 m_Menu = Menu.createMenu(image_canvas, inventoryMenuData, false);
                 break;
+              default:
+                m_Menu = Menu.createMenu(image_canvas, objectMenuData, false);
             };
             m_Menu.labelField="@label";
             m_Menu.iconField="@icon";
@@ -431,14 +424,13 @@
             m_Menu.show(event.stageX, event.stageY);
           } else if (m_Actions[0] == TakeItemIcon) {
             takeItemEvent(game_object, img);
+          } else if (m_Actions[0] == TalkToIcon) {
+            talkToEvent(game_object, event.stageX, event.stageY);
           } else if (m_Actions[0] == UseItemIcon) {
             switch (object_type)
             {
               case "exit":
                 useExitEvent(room_object);
-                break;
-              case "character":
-                talkToEvent(game_object, event.stageX, event.stageY);
                 break;
               default:
                 useItemEvent(game_object);
@@ -688,23 +680,10 @@
     blurYFrom="0.0" blurYTo="20.0" 
     color="0xFFFFFF"/>
 
-  <mx:XML id="characterMenuData">
+  <mx:XML id="objectMenuData">
     <root>
       <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
-      <menuitem eventName="talkto" label="Talk To" icon="UseItemIcon"/>
-    </root>
-  </mx:XML>
-
-  <mx:XML id="exitMenuData">
-    <root>
-      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
-      <menuitem eventName="useexit" label="Use Exit" icon="UseItemIcon"/>
-    </root>
-  </mx:XML>
-
-  <mx:XML id="itemMenuData">
-    <root>
-      <menuitem eventName="lookat" label="Look At" icon="LookAtIcon"/>
+      <menuitem eventName="talkto" label="Talk To" icon="TalkToIcon"/>
       <menuitem eventName="use" label="Use" icon="UseItemIcon"/>
       <menuitem eventName="take" label="Take" icon="TakeItemIcon"/>
     </root>
@@ -718,16 +697,17 @@
   </mx:XML>
 
 
-  <mx:Panel id="game_panel" title="Game" minWidth="640" minHeight="580" >
+  <mx:Panel id="game_panel" title="Game" minWidth="800" minHeight="600" >
+    <mx:HBox>
+    <mx:Panel id="inventory_panel" title="Inventory" minWidth="75" height="480" >
+      <mx:VBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" verticalScrollPolicy="on" width="100%" height="100%" />
+    </mx:Panel>
 
     <mx:Canvas id="image_canvas" dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" rollOut="mx.managers.CursorManager.removeAllCursors();" rollOver="updateCursor();">
       <mx:Image id="background" width="640" height="480" click="clickOnRoom();"/>
     </mx:Canvas>  
+    </mx:HBox>
     <mx:Text id="subtitle" width="100%" />
-    <mx:Panel id="inventory_panel" title="Inventory" width="640" minHeight="75" >
-      <mx:HBox id="inventory_box"  dragEnter="dragEnterHandler(event);" dragDrop="dragDropHandler(event);" horizontalScrollPolicy="on" width="100%" height="100%" >
-      </mx:HBox>
-    </mx:Panel>
     <mx:TextArea id="rteText" width="640" height="1" editable="false" visible="false" />
   </mx:Panel>
 </mx:Application>
