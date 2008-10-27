@@ -2,7 +2,8 @@
 
 <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" xmlns="*" 
   layout="absolute" verticalAlign="center" horizontalAlign="center"
-  backgroundColor="0x000000"
+  backgroundColor="0x000000" modalTransparency="0.2"
+  modalTransparencyDuration="50"
       creationComplete="initVars(); service.send();">
   
   <mx:Script>
@@ -731,7 +732,6 @@
       <mx:Panel title="Current Item" height="100%" width="40%">
         <mx:Text id="itemtitle"  height="100%" width="100%"/>
       </mx:Panel>
-      <mx:Button label="Fullscreen"/>
     </mx:HBox>
     <mx:TextArea id="rteText" width="640" height="1" editable="false" visible="false" />
   </mx:Panel>
