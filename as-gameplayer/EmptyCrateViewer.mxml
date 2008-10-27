@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" xmlns="*" 
-      layout="absolute"
+  layout="absolute" verticalAlign="center" horizontalAlign="center"
+  backgroundColor="0x000000"
       creationComplete="initVars(); service.send();">
   
   <mx:Script>
@@ -55,7 +56,6 @@
       private function initVars():void
       {
         gameURL = "http://game.emptycrate.com/emptycrate/game_data/" + Application.application.parameters.gameid;
-        
       }
 
       private function findObject(a:Array, field:String, value:Object):Object
@@ -669,16 +669,6 @@
         updateCursor();
       }
 
-      private function toggleFullscreen():void
-      {
-        if (stage.displayState == StageDisplayState.FULL_SCREEN)
-        {
-          stage.displayState = StageDisplayState.NORMAL;
-        } else {
-          stage.displayState = StageDisplayState.FULL_SCREEN;
-        }
-      }
-
       private function updateCursor():void
       {
         mx.managers.CursorManager.removeAllCursors();
@@ -741,7 +731,7 @@
       <mx:Panel title="Current Item" height="100%" width="40%">
         <mx:Text id="itemtitle"  height="100%" width="100%"/>
       </mx:Panel>
-      <mx:Button label="Fullscreen" click="toggleFullscreen();"/>
+      <mx:Button label="Fullscreen"/>
     </mx:HBox>
     <mx:TextArea id="rteText" width="640" height="1" editable="false" visible="false" />
   </mx:Panel>
