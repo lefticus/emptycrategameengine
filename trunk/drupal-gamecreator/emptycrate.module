@@ -1258,7 +1258,7 @@ function emptycrate_view($node, $teaser = FALSE, $page = FALSE) {
         while ($nid = db_fetch_array($result))
         {
           $n= node_load($nid["nid"]);
-          $data[] = array($n->type, l($n->title, "node/".$n->nid), get_licence_html($n->cc_lite_licence), theme_username(user_load($n->uid)));
+          $data[] = array($n->type, l($n->title, "node/".$n->nid), get_license_html($n->cc_lite_licence), theme_username(user_load($n->uid)));
         }
 
         $fieldset = array(
